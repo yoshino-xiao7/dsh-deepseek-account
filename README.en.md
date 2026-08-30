@@ -14,14 +14,14 @@ An independent account plugin for DeepSeek Harness. It uses one sidebar entry to
 
 | Current Provider | Sidebar content | Data source | Provider plugin required |
 | --- | --- | --- | --- |
-| DeepSeek | Balance for the configured API key | Official DeepSeek `/user/balance` | No |
-| Grok | Quota reset time | Existing local RPC from the Grok plugin | Yes |
-| Codex | Five-hour and weekly reset times | Existing local RPC from the Codex plugin | Yes |
-| Unknown custom Provider | Falls back to the DeepSeek balance | Official DeepSeek `/user/balance` | No |
+| DeepSeek | DeepSeek icon and balance for the configured API key | Official DeepSeek `/user/balance` | No |
+| Grok | Grok icon, remaining percentage, current period, and reset time | Existing local RPC from the Grok plugin | Yes |
+| Codex | ChatGPT icon plus remaining percentages and reset times for the five-hour and weekly windows | Existing local RPC from the Codex plugin | Yes |
+| Unknown custom Provider | Falls back to the DeepSeek icon and balance | Official DeepSeek `/user/balance` | No |
 
 The sidebar always shows exactly one item for the Provider selected by the current conversation. Grok and Codex are optional data sources; this plugin does not take over their authentication, models, settings, or other behavior. If an optional plugin is missing, its quota source is shown as unavailable while DeepSeek balance and top-up remain independent.
 
-Only DeepSeek has a top-up entry. Grok and Codex show reset times only; this plugin neither shows nor infers remaining quota.
+Only DeepSeek has a top-up entry. Grok uses the remaining percentage supplied by its optional plugin, falling back to the supplied used percentage when needed. Codex converts the used percentages supplied by its optional plugin into remaining percentages. The plugin retains only the projected percentages and reset windows needed for display, not the upstream usage objects.
 
 ## Installation
 
@@ -34,7 +34,7 @@ Requirements:
 Install the current stable version:
 
 ```sh
-dsh plugin --profile web add dsh-deepseek-account@0.1.3
+dsh plugin --profile web add dsh-deepseek-account@0.1.4
 dsh web
 ```
 

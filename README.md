@@ -14,14 +14,14 @@ DeepSeek Harness 的独立账户插件：在一个侧栏入口中展示当前对
 
 | 当前 Provider | 侧栏显示 | 数据来源 | 是否需要对应插件 |
 | --- | --- | --- | --- |
-| DeepSeek | API Key 所属账户余额 | DeepSeek 官方 `/user/balance` | 否 |
-| Grok | 额度重置时间 | Grok 插件已有的本地 RPC | 是 |
-| Codex | 5 小时和每周额度重置时间 | Codex 插件已有的本地 RPC | 是 |
-| 无法识别的自定义 Provider | 回退显示 DeepSeek 余额 | DeepSeek 官方 `/user/balance` | 否 |
+| DeepSeek | DeepSeek 图标、API Key 所属账户余额 | DeepSeek 官方 `/user/balance` | 否 |
+| Grok | Grok 图标、剩余额度百分比、当前周期与重置时间 | Grok 插件已有的本地 RPC | 是 |
+| Codex | ChatGPT 图标、5 小时和每周的剩余额度百分比与重置时间 | Codex 插件已有的本地 RPC | 是 |
+| 无法识别的自定义 Provider | 回退显示 DeepSeek 图标和余额 | DeepSeek 官方 `/user/balance` | 否 |
 
 侧栏始终只显示当前对话所选 Provider 的一项信息。Grok 和 Codex 只是可选数据源；本插件不接管它们的登录、模型、设置或其他能力。缺少可选插件时，对应额度显示“来源不可用”，DeepSeek 余额和充值仍可独立使用。
 
-只有 DeepSeek 提供充值入口。Grok 和 Codex 只显示重置时间，不显示或推断剩余额度。
+只有 DeepSeek 提供充值入口。Grok 直接采用可选插件返回的剩余百分比，缺失时可由其已用百分比换算；Codex 将可选插件返回的已用百分比换算成剩余百分比。插件只保留显示所需的百分比和重置窗口，不保留上游原始用量对象。
 
 ## 安装
 
@@ -34,7 +34,7 @@ DeepSeek Harness 的独立账户插件：在一个侧栏入口中展示当前对
 安装当前稳定版本：
 
 ```sh
-dsh plugin --profile web add dsh-deepseek-account@0.1.3
+dsh plugin --profile web add dsh-deepseek-account@0.1.4
 dsh web
 ```
 
