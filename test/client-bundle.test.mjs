@@ -105,7 +105,7 @@ test("registers separate DeepSeek settings and provider-aware sidebar surfaces",
   assert.equal(typeof registrations[1].component, "function")
 })
 
-test("projects only Grok and Codex reset windows from their existing optional RPC results", async () => {
+test("projects only bounded Grok and Codex quota fields from their optional RPC results", async () => {
   let definition
   const source = await fs.readFile(path.join(root, "client.js"), "utf8")
   vm.runInNewContext(source, {
@@ -137,9 +137,10 @@ test("projects only Grok and Codex reset windows from their existing optional RP
     provider: "grok",
     status: "ready",
     periodKind: "weekly",
+    remainingPercent: 75,
     resetsAt: "2026-09-01T00:00:00.000Z",
   })
-  assert.equal("remainingPercent" in grok, false)
+  assert.equal("usedPercent" in grok, false)
 
   const codex = plugin.safeCodexUsage({
     ok: true,
@@ -156,11 +157,96 @@ test("projects only Grok and Codex reset windows from their existing optional RP
     provider: "codex",
     status: "ready",
     windows: [
-      { kind: "five-hour", resetsAt: Date.parse("2026-08-30T05:00:00.000Z") },
-      { kind: "weekly", resetsAt: Date.parse("2026-09-06T00:00:00.000Z") },
+      { kind: "five-hour", remainingPercent: 80, resetsAt: Date.parse("2026-08-30T05:00:00.000Z") },
+      { kind: "weekly", remainingPercent: 60, resetsAt: Date.parse("2026-09-06T00:00:00.000Z") },
     ],
   })
   assert.equal(JSON.stringify(codex).includes("usedPercent"), false)
+})
+
+test("renders provider icons plus complete Grok and Codex quota lines", async () => {
+  const source = await fs.readFile(path.join(root, "client.js"), "utf8")
+  assert.match(source, /\.dsh-deepseek-account-copy small\{overflow:visible;[^}]*white-space:normal\}/u)
+  const cases = [{
+    provider: "grok",
+    state: {
+      provider: "grok",
+      status: "ready",
+      periodKind: "weekly",
+      remainingPercent: 75,
+      resetsAt: "2026-09-01T00:00:00.000Z",
+    },
+    expected: [["remaining", "75%"], ["weekly", "resetsAt"]],
+    icon: "grok",
+  }, {
+    provider: "codex",
+    state: {
+      provider: "codex",
+      status: "ready",
+      windows: [
+        { kind: "five-hour", remainingPercent: 80, resetsAt: Date.parse("2026-08-30T05:00:00.000Z") },
+        { kind: "weekly", remainingPercent: 60, resetsAt: Date.parse("2026-09-06T00:00:00.000Z") },
+      ],
+    },
+    expected: [["fiveHour", "remaining", "80%", "resetsAt"], ["weekly", "remaining", "60%", "resetsAt"]],
+    icon: "codex",
+  }, {
+    provider: "deepseek",
+    state: {
+      provider: "deepseek",
+      status: "ready",
+      balances: [{ currency: "CNY", total: "12.30", granted: "2.30", toppedUp: "10.00" }],
+      fetchedAt: "2026-08-30T00:00:00.000Z",
+      stale: false,
+    },
+    expected: [["¥12.30"]],
+    icon: "deepseek",
+  }]
+
+  for (const { provider, state, expected, icon } of cases) {
+    const hookStates = [provider, state, false]
+    let definition
+    const React = {
+      Fragment: Symbol("Fragment"),
+      createElement(type, props, ...children) { return { type, props, children } },
+      useCallback(callback) { return callback },
+      useEffect() {},
+      useState(initial) {
+        const value = hookStates.length === 0 ? initial : hookStates.shift()
+        return [value, () => {}]
+      },
+    }
+    vm.runInNewContext(source, {
+      window: { __ModuleLoader__: { load(value) { definition = value } } },
+      document: {
+        head: { append() {} },
+        createElement: () => ({ dataset: {}, remove() {}, textContent: "" }),
+        querySelector: () => null,
+      },
+    })
+    const plugin = definition.factory(() => React)
+    const registrations = []
+    plugin.apply({
+      connection: { rpc: { call() {} } },
+      effect(callback) { callback() },
+      locale: { register() {}, bind: () => (key) => key },
+      slots: {
+        inject(_name, callback) { callback() },
+        register(options, component) { registrations.push({ options, component }) },
+      },
+      sessions: { list: { getSnapshot: () => ({ current: undefined }), subscribe: () => () => {} } },
+      modelDirectories: { directoryFor: () => { throw new Error("no active session") } },
+    })
+
+    const sidebar = registrations.find(({ options }) => options.name === "sidebar.footer.action")
+    const tree = sidebar.component({ wide: true, ...sidebar.options.inject() })
+    const icons = findElements(tree, "svg")
+    assert.equal(icons.length, 1, `${provider} must render one provider icon`)
+    assert.equal(icons[0].props["data-provider-icon"], icon)
+    const lines = findElements(tree, "small").map(textContent)
+    assert.equal(lines.length, expected.length, `${provider} must render every quota line separately`)
+    expected.forEach((parts, index) => parts.forEach((part) => assert.match(lines[index], new RegExp(part))))
+  }
 })
 
 test("keeps the sidebar mounted while a provider switch still holds the previous ready state", async () => {
@@ -212,3 +298,15 @@ test("keeps the sidebar mounted while a provider switch still holds the previous
     )
   }
 })
+
+function findElements(node, type) {
+  if (node === null || node === undefined || typeof node !== "object") return []
+  const own = node.type === type ? [node] : []
+  return own.concat((node.children ?? []).flatMap((child) => findElements(child, type)))
+}
+
+function textContent(node) {
+  if (node === null || node === undefined || typeof node === "boolean") return ""
+  if (typeof node === "string" || typeof node === "number") return String(node)
+  return (node.children ?? []).map(textContent).join("")
+}

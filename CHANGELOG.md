@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.4 - 2026-08-30
+
+- Show the remaining Grok quota percentage with its current reset window.
+- Show both Codex five-hour and weekly remaining percentages and reset times on separate, wrapping sidebar lines.
+- Replace the generic sidebar letters with provider-specific Grok, ChatGPT/OpenAI, and DeepSeek icons.
+
 ## 0.1.3 - 2026-08-30
 
 - Keep the sidebar mounted while switching from a ready Provider to DeepSeek, an unknown Provider fallback, or Codex, instead of rendering the previous Provider's incompatible state shape.

@@ -16,8 +16,8 @@ loopback RPC /dsh-deepseek-account
           ▼
 browser account client ──> sidebar + DeepSeek settings
           │
-          ├── optional /grok-auth RPC  ──> reset time only
-          └── optional /dsh-codex RPC  ──> 5-hour/weekly reset times only
+          ├── optional /grok-auth RPC  ──> remaining % + current reset window
+          └── optional /dsh-codex RPC  ──> remaining % + 5-hour/weekly reset windows
 ```
 
 充值是独立路径：浏览器只打开固定的 `https://platform.deepseek.com/balance`。插件不参与该网页的登录、Cookie 或付款请求。
@@ -67,7 +67,7 @@ await balance.read({ force? })
 Grok 的 `/grok-auth` 和 Codex 的 `/dsh-codex` 是外部、可选 seam。它们不是本插件拥有的接口，因此：
 
 - 调用失败必须降级为 `unavailable`；
-- 只读取显示所需的重置窗口，不保留用量百分比或其他账户数据；
+- 只投影显示所需的剩余百分比与重置窗口，不保留上游原始用量对象或其他账户数据；
 - 不以 npm 依赖或 Host 注入的方式接管对应插件；
 - 外部 RPC 变化时，通过投影函数和契约测试适配，不能让变化扩散到 UI。
 
@@ -78,6 +78,8 @@ Grok 的 `/grok-auth` 和 Codex 的 `/dsh-codex` 是外部、可选 seam。它�
 - `llm-grok`、`grok` → Grok；
 - `dsh-codex` → Codex；
 - 其他值（包括未知自定义 Provider）→ DeepSeek。
+
+侧栏图标使用同一映射：Grok 标识、ChatGPT/OpenAI Blossom、DeepSeek 鲸鱼；图形内联在客户端产物中并继承当前主题颜色，不发起额外网络请求。
 
 改变默认回退属于用户可见兼容性变化，必须先开 Issue，并同步 README、界面文案、测试、CHANGELOG 和发布说明。
 
