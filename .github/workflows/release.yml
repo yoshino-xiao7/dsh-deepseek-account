@@ -156,7 +156,16 @@ jobs:
             sleep 15
           done
           cmp "$PACKAGE_FILE" "registry/$PACKAGE_FILE"
-          npm audit signatures
+          audit_dir="$(mktemp -d)"
+          npm install \
+            --prefix "$audit_dir" \
+            --package-lock=true \
+            --ignore-scripts \
+            --legacy-peer-deps \
+            --no-audit \
+            --no-fund \
+            "dsh-deepseek-account@$REQUESTED_VERSION"
+          npm --prefix "$audit_dir" audit signatures
       - name: Publish the verified GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
