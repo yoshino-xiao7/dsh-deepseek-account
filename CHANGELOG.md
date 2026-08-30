@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.1 - 2026-08-30
+
+- Make this plugin the sole owner of the provider-aware sidebar account card without changing Grok or Codex plugin behavior.
+- Read Grok and Codex reset windows through their existing optional local RPCs; show Grok reset time and Codex five-hour and weekly reset times only.
+- Keep DeepSeek balance and official top-up fully functional when Grok or Codex is not installed, and fall back to DeepSeek for unknown custom Providers.
+
 ## 0.1.0 - 2026-08-30
 
 - Create an independent DeepSeek Harness account plugin with a loopback-only balance RPC and a credential-isolated Host boundary.

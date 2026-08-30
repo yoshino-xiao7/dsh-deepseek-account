@@ -3,10 +3,13 @@
 An independent DeepSeek Harness account plugin that:
 
 - shows the balance associated with the configured DeepSeek API key when the current conversation selects DeepSeek or an unknown custom Provider;
+- shows the reset time for Grok usage and the five-hour and weekly reset times for Codex usage when either Provider is selected;
 - presents CNY/USD total, granted, and topped-up balances in a dedicated settings page;
 - opens the official DeepSeek Platform for web sign-in and top-up.
 
-The sidebar component returns no content for Grok or Codex, allowing those Provider plugins to display their own usage limits. This plugin never receives web cookies or payment details and never submits a payment.
+The sidebar shows exactly one item for the Provider selected by the current conversation. Grok and Codex data is read on demand through their existing local RPCs; this plugin does not change or take over either Provider plugin's authentication, models, settings, or other behavior. If either optional plugin is absent, only that Provider's quota source is unavailable while DeepSeek balance and top-up continue to work independently. Unknown custom Providers fall back to DeepSeek.
+
+Only DeepSeek has a top-up entry. Grok and Codex show reset times only.
 
 ## Security boundary
 
@@ -19,7 +22,7 @@ The top-up destination is fixed to `https://platform.deepseek.com/balance`; sign
 After the formal release, install the exact version:
 
 ```sh
-dsh plugin --profile web add dsh-deepseek-account@0.1.0
+dsh plugin --profile web add dsh-deepseek-account@0.1.1
 dsh web
 ```
 
@@ -29,4 +32,4 @@ dsh web
 npm run check
 ```
 
-The release branch is `yukiryou/v0.1.0`. `dist/` is generated during build and packaging and is not committed.
+The release branch is `yukiryou/v0.1.1`. `dist/` is generated during build and packaging and is not committed.

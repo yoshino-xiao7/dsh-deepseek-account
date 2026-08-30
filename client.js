@@ -6,7 +6,9 @@ window.__ModuleLoader__.load({
     const module = { exports: {} }
     const React = require("react")
     const namespace = "settings.deepseekAccount"
-    const channel = "/dsh-deepseek-account"
+    const deepSeekChannel = "/dsh-deepseek-account"
+    const grokChannel = "/grok-auth"
+    const codexChannel = "/dsh-codex"
     const topUpUrl = "https://platform.deepseek.com/balance"
     const dictionaries = {
       zh: {
@@ -15,6 +17,7 @@ window.__ModuleLoader__.load({
         topUp: "登录并充值", officialNote: "登录和付款仅在 DeepSeek 官方网页完成；插件不读取网页 Cookie，也不会代为提交付款。",
         updated: "数据更新时间", loading: "正在读取余额…", unavailable: "暂时无法读取余额。", unconfigured: "请先在模型设置中配置 DeepSeek API Key。",
         unauthorized: "当前 API Key 无效或已失效。", rateLimited: "查询过于频繁，请稍后重试。", stale: "当前展示上一次成功读取的余额。",
+        grokQuota: "Grok 额度", codexQuota: "Codex 额度", fiveHour: "5 小时", weekly: "每周", resetsAt: "重置", resetUnknown: "重置时间不可用", sourceUnavailable: "额度来源不可用",
       },
       en: {
         nav: "DeepSeek account", title: "DeepSeek account", description: "View the balance of the account associated with the current API key and open the official DeepSeek Platform to top up.",
@@ -22,19 +25,68 @@ window.__ModuleLoader__.load({
         topUp: "Sign in and top up", officialNote: "Sign-in and payment happen only on the official DeepSeek website. The plugin never reads web cookies or submits payment.",
         updated: "Updated", loading: "Reading balance…", unavailable: "The balance is temporarily unavailable.", unconfigured: "Configure a DeepSeek API key in model settings first.",
         unauthorized: "The current API key was rejected.", rateLimited: "Too many balance requests. Try again later.", stale: "Showing the last successfully verified balance.",
+        grokQuota: "Grok quota", codexQuota: "Codex quota", fiveHour: "5-hour", weekly: "Weekly", resetsAt: "Resets", resetUnknown: "Reset time unavailable", sourceUnavailable: "Quota source unavailable",
       },
     }
 
-    function accountClient(connection) {
+    function createAccountClient(connection) {
       return Object.freeze({
-        async read(force, signal) {
-          const result = await connection.rpc.call(channel, "read", { force: force === true }, signal)
-          if (!plainRecord(result) || result.ok !== true) throw new Error("DeepSeek account RPC failed")
-          const snapshot = safeSnapshot(result.value)
-          if (snapshot === undefined) throw new Error("DeepSeek account RPC returned invalid data")
-          return snapshot
+        async read(provider, force, signal) {
+          try {
+            if (provider === "grok") {
+              return safeGrokQuota(await connection.rpc.call(grokChannel, "dashboard", {}, signal))
+                ?? { provider, status: "unavailable" }
+            }
+            if (provider === "codex") {
+              return safeCodexUsage(await connection.rpc.call(codexChannel, "usage", {}, signal))
+                ?? { provider, status: "unavailable" }
+            }
+            const result = await connection.rpc.call(deepSeekChannel, "read", { force: force === true }, signal)
+            if (!plainRecord(result) || result.ok !== true) return { provider: "deepseek", status: "unavailable" }
+            const snapshot = safeSnapshot(result.value)
+            return snapshot === undefined
+              ? { provider: "deepseek", status: "unavailable" }
+              : { provider: "deepseek", ...snapshot }
+          } catch {
+            return { provider, status: "unavailable" }
+          }
         },
       })
+    }
+
+    function safeGrokQuota(result) {
+      if (!plainRecord(result) || result.ok !== true || !plainRecord(result.value) || result.value.kind !== "dashboard") return undefined
+      if (!plainRecord(result.value.dashboard)) return undefined
+      const quota = result.value.dashboard.quota
+      if (!plainRecord(quota) || quota.state !== "ready") return undefined
+      const periodKind = quota.periodKind === "weekly" || quota.periodKind === "monthly" ? quota.periodKind : "current"
+      if (quota.resetsAt !== undefined && !validTime(quota.resetsAt)) return undefined
+      return {
+        provider: "grok",
+        status: "ready",
+        periodKind,
+        ...(quota.resetsAt === undefined ? {} : { resetsAt: quota.resetsAt }),
+      }
+    }
+
+    function safeCodexUsage(result) {
+      if (!plainRecord(result) || result.ok !== true || !plainRecord(result.value) || !Array.isArray(result.value.rateLimits) || result.value.rateLimits.length > 16) return undefined
+      const limit = result.value.rateLimits.find((candidate) => plainRecord(candidate) && candidate.limitId === "codex")
+        ?? result.value.rateLimits.find(plainRecord)
+      if (!plainRecord(limit)) return undefined
+      const windows = [limit.primary, limit.secondary]
+        .map(safeCodexWindow)
+        .filter((window) => window !== undefined)
+        .sort((left, right) => ({ "five-hour": 0, weekly: 1 })[left.kind] - ({ "five-hour": 0, weekly: 1 })[right.kind])
+      if (windows.length === 0) return undefined
+      return { provider: "codex", status: "ready", windows }
+    }
+
+    function safeCodexWindow(value) {
+      if (!plainRecord(value) || typeof value.usedPercent !== "number" || !Number.isFinite(value.usedPercent) || value.usedPercent < 0 || value.usedPercent > 100) return undefined
+      const kind = value.windowDurationMins === 300 ? "five-hour" : value.windowDurationMins === 10_080 ? "weekly" : undefined
+      if (kind === undefined || !validTimestamp(value.resetsAt)) return undefined
+      return { kind, resetsAt: value.resetsAt }
     }
 
     function safeSnapshot(value) {
@@ -59,15 +111,28 @@ window.__ModuleLoader__.load({
       return { status: "ready", isAvailable: value.isAvailable, balances, fetchedAt: value.fetchedAt, stale: value.stale }
     }
 
-    function useAccount(client, enabled = true) {
-      const [state, setState] = React.useState({ status: "loading" })
+    function useAccount(client, provider = "deepseek", enabled = true) {
+      const [state, setState] = React.useState({ provider, status: "loading" })
       const [busy, setBusy] = React.useState(false)
       const refresh = React.useCallback(async (force = false) => {
         setBusy(true)
-        try { setState(await client.read(force)) } catch { setState((previous) => previous.status === "ready" ? { status: "unavailable", reason: "network", lastGood: { ...previous, stale: true } } : { status: "unavailable", reason: "network" }) }
+        try { setState(await client.read(provider, force)) }
+        catch { setState({ provider, status: "unavailable" }) }
         finally { setBusy(false) }
-      }, [client])
-      React.useEffect(() => { if (enabled) void refresh(false) }, [enabled, refresh])
+      }, [client, provider])
+      React.useEffect(() => {
+        if (!enabled) return undefined
+        let active = true
+        const controller = new AbortController()
+        setState({ provider, status: "loading" })
+        setBusy(true)
+        void client.read(provider, false, controller.signal).then((value) => {
+          if (active) setState(value)
+        }).finally(() => {
+          if (active) setBusy(false)
+        })
+        return () => { active = false; controller.abort() }
+      }, [client, enabled, provider])
       return { state, busy, refresh }
     }
 
@@ -103,31 +168,45 @@ window.__ModuleLoader__.load({
     }
 
     function accountProvider(selected) {
-      return selected === "grok" ? "grok" : selected === "dsh-codex" ? "codex" : "deepseek"
+      return selected === "llm-grok" || selected === "grok" ? "grok" : selected === "dsh-codex" ? "codex" : "deepseek"
     }
 
     function shownSnapshot(state) { return state.status === "ready" ? state : state.lastGood }
     function mainBalance(snapshot) { return snapshot?.balances.find((item) => item.currency === "CNY") ?? snapshot?.balances[0] }
     function money(balance) { return balance === undefined ? "—" : `${balance.currency === "CNY" ? "¥" : "$"}${balance.total}` }
 
+    function resetTime(value) { return value === undefined ? undefined : new Date(value).toLocaleString() }
+
+    function sidebarPresentation(provider, state, t) {
+      if (provider === "grok") {
+        const reset = state.status === "ready" ? resetTime(state.resetsAt) : undefined
+        return { label: t("grokQuota"), symbol: "G", summary: reset === undefined ? t(state.status === "loading" ? "loading" : "sourceUnavailable") : `${t("resetsAt")} ${reset}` }
+      }
+      if (provider === "codex") {
+        const windows = state.status === "ready" ? state.windows : []
+        const summary = windows.map((window) => `${t(window.kind === "five-hour" ? "fiveHour" : "weekly")} ${t("resetsAt")} ${resetTime(window.resetsAt)}`).join(" · ")
+        return { label: t("codexQuota"), symbol: "C", summary: summary || t(state.status === "loading" ? "loading" : "sourceUnavailable") }
+      }
+      return { label: t("balance"), symbol: "¥", summary: money(mainBalance(shownSnapshot(state))) }
+    }
+
     function SidebarBalance({ wide, ctx, client, t }) {
       const provider = useActiveAccountProvider(ctx)
-      const { state, busy, refresh } = useAccount(client, provider === "deepseek")
-      if (provider !== "deepseek") return null
-      const summary = money(mainBalance(shownSnapshot(state)))
+      const { state, busy, refresh } = useAccount(client, provider)
+      const presentation = sidebarPresentation(provider, state, t)
       return React.createElement("button", {
         type: "button", className: wide ? "dsh-deepseek-account-card" : "dsh-deepseek-account-rail",
-        disabled: busy, onClick: () => void refresh(true), "aria-label": `${t("balance")} ${summary}`,
+        disabled: busy, onClick: () => void refresh(true), "aria-label": `${presentation.label} ${presentation.summary}`,
       }, wide
         ? React.createElement(React.Fragment, null,
-          React.createElement("span", { className: "dsh-deepseek-account-symbol", "aria-hidden": "true" }, "¥"),
-          React.createElement("span", { className: "dsh-deepseek-account-copy" }, React.createElement("span", null, t("balance")), React.createElement("small", null, summary)),
+          React.createElement("span", { className: "dsh-deepseek-account-symbol", "aria-hidden": "true" }, presentation.symbol),
+          React.createElement("span", { className: "dsh-deepseek-account-copy" }, React.createElement("span", null, presentation.label), React.createElement("small", null, presentation.summary)),
           React.createElement("span", { "aria-hidden": "true" }, busy ? "…" : "↻"))
-        : React.createElement("span", null, summary))
+        : React.createElement("span", null, presentation.symbol))
     }
 
     function AccountSettings({ client, t }) {
-      const { state, busy, refresh } = useAccount(client)
+      const { state, busy, refresh } = useAccount(client, "deepseek")
       const shown = shownSnapshot(state)
       const reason = state.status === "unavailable" ? ({
         "credential-unconfigured": "unconfigured", "credential-unauthorized": "unauthorized", "rate-limited": "rateLimited",
@@ -164,7 +243,7 @@ window.__ModuleLoader__.load({
       ctx.effect(() => ctx.locale.register(namespace, dictionaries), "deepseek-account: dictionaries")
       ctx.effect(() => installStyle(), "deepseek-account: styles")
       const t = ctx.locale.bind(namespace)
-      const client = accountClient(ctx.connection)
+      const client = createAccountClient(ctx.connection)
       ctx.slots.inject("sidebar.footer.action", () => ctx.slots.register({
         name: "sidebar.footer.action", id: "deepseek-account", order: 35, label: t("balance"),
         inject: () => ({ ctx, client, t }),
@@ -178,6 +257,9 @@ window.__ModuleLoader__.load({
     module.exports.inject = inject
     module.exports.apply = apply
     module.exports.accountProvider = accountProvider
+    module.exports.createAccountClient = createAccountClient
+    module.exports.safeCodexUsage = safeCodexUsage
+    module.exports.safeGrokQuota = safeGrokQuota
     module.exports.safeSnapshot = safeSnapshot
     return module.exports
   },
@@ -186,3 +268,4 @@ window.__ModuleLoader__.load({
 function plainRecord(value) { return typeof value === "object" && value !== null && !Array.isArray(value) }
 function validDecimal(value) { return typeof value === "string" && value.length <= 64 && /^\d+(?:\.\d+)?$/u.test(value) }
 function validTime(value) { return typeof value === "string" && Number.isFinite(Date.parse(value)) }
+function validTimestamp(value) { return Number.isSafeInteger(value) && value >= 0 && Number.isFinite(new Date(value).getTime()) }
