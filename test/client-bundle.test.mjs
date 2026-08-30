@@ -166,7 +166,7 @@ test("projects only bounded Grok and Codex quota fields from their optional RPC 
 
 test("renders provider icons plus complete Grok and Codex quota lines", async () => {
   const source = await fs.readFile(path.join(root, "client.js"), "utf8")
-  assert.match(source, /\.dsh-deepseek-account-copy small\{overflow:visible;[^}]*white-space:normal\}/u)
+  assert.match(source, /\.dsh-deepseek-account-quota-window\{/u)
   const cases = [{
     provider: "grok",
     state: {
@@ -243,10 +243,111 @@ test("renders provider icons plus complete Grok and Codex quota lines", async ()
     const icons = findElements(tree, "svg")
     assert.equal(icons.length, 1, `${provider} must render one provider icon`)
     assert.equal(icons[0].props["data-provider-icon"], icon)
-    const lines = findElements(tree, "small").map(textContent)
+    const lines = provider === "codex"
+      ? findElementsByClass(tree, "dsh-deepseek-account-quota-window").map(textContent)
+      : findElements(tree, "small").map(textContent)
     assert.equal(lines.length, expected.length, `${provider} must render every quota line separately`)
     expected.forEach((parts, index) => parts.forEach((part) => assert.match(lines[index], new RegExp(part))))
+    if (provider === "codex") {
+      assert.equal(findElementsByClass(tree, "dsh-deepseek-account-quota-period").length, 2)
+      assert.equal(findElementsByClass(tree, "dsh-deepseek-account-quota-remaining").length, 2)
+      assert.equal(findElementsByClass(tree, "dsh-deepseek-account-quota-reset").length, 2)
+    }
   }
+})
+
+test("refreshes once when the current conversation finishes", async () => {
+  let definition
+  const source = await fs.readFile(path.join(root, "client.js"), "utf8")
+  vm.runInNewContext(source, {
+    window: { __ModuleLoader__: { load(value) { definition = value } } },
+    document: {
+      head: { append() {} },
+      createElement: () => ({ dataset: {}, remove() {}, textContent: "" }),
+      querySelector: () => null,
+    },
+  })
+  const plugin = definition.factory(() => ({ createElement() {}, Fragment: Symbol("Fragment") }))
+  let snapshot = {
+    current: "session-a",
+    byId: { "session-a": { running: false } },
+  }
+  const listeners = new Set()
+  const list = {
+    getSnapshot: () => snapshot,
+    subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener) },
+  }
+  const refreshes = []
+  const stop = plugin.subscribeCurrentConversationCompletion(list, (sessionId) => refreshes.push(sessionId))
+  const publish = (next) => {
+    snapshot = next
+    for (const listener of listeners) listener()
+  }
+
+  publish({ current: "session-a", byId: { "session-a": { running: false } } })
+  publish({ current: "session-a", byId: { "session-a": { running: true } } })
+  publish({ current: "session-a", byId: { "session-a": { running: true } } })
+  publish({ current: "session-a", byId: { "session-a": { running: false } } })
+  publish({ current: "session-a", byId: { "session-a": { running: false } } })
+  assert.deepEqual(refreshes, ["session-a"])
+
+  publish({ current: "session-b", byId: { "session-b": { running: false } } })
+  publish({ current: "session-b", byId: { "session-b": { running: true } } })
+  publish({ current: "session-b", byId: { "session-b": { running: false } } })
+  assert.deepEqual(refreshes, ["session-a", "session-b"])
+
+  stop()
+  publish({ current: "session-b", byId: { "session-b": { running: true } } })
+  publish({ current: "session-b", byId: { "session-b": { running: false } } })
+  assert.deepEqual(refreshes, ["session-a", "session-b"])
+})
+
+test("replaces only the DeepSeek account settings gear and restores it on cleanup", async () => {
+  let definition
+  let observer
+  const source = await fs.readFile(path.join(root, "client.js"), "utf8")
+  const created = []
+  const document = {
+    createElementNS(_namespace, tagName) {
+      const element = fakeElement(tagName)
+      created.push(element)
+      return element
+    },
+    body: undefined,
+    head: { append() {} },
+    createElement: () => ({ dataset: {}, remove() {}, textContent: "" }),
+    querySelector: () => null,
+  }
+  vm.runInNewContext(source, {
+    window: { __ModuleLoader__: { load(value) { definition = value } } },
+    document,
+    MutationObserver: class {
+      constructor(callback) { this.callback = callback; observer = this }
+      observe() {}
+      disconnect() { this.disconnected = true }
+    },
+  })
+  const plugin = definition.factory(() => ({ createElement() {}, Fragment: Symbol("Fragment") }))
+  const deepseek = fakeNavButton("DeepSeek 账户")
+  const unrelated = fakeNavButton("通用设置")
+  document.body = {
+    querySelectorAll(selector) { return selector === "button" ? [deepseek.button, unrelated.button] : [] },
+  }
+
+  const cleanup = plugin.installSettingsNavIcon()
+  assert.equal(deepseek.original.hidden, true)
+  assert.equal(deepseek.button.inserted.dataset.dshDeepseekAccountNavIcon, "")
+  assert.equal(unrelated.original.hidden, false, "an unrelated settings row must retain its icon")
+  assert.equal(unrelated.button.inserted, undefined)
+  assert.equal(created.filter(({ tagName }) => tagName === "svg").length, 1)
+  assert.equal(created.filter(({ tagName }) => tagName === "path").length, 1)
+  observer.callback()
+  assert.equal(created.filter(({ tagName }) => tagName === "svg").length, 1, "a repeated scan must not add another icon")
+
+  cleanup()
+  assert.equal(observer.disconnected, true)
+  assert.equal(deepseek.original.hidden, false)
+  assert.equal(deepseek.button.inserted, undefined)
 })
 
 test("keeps the sidebar mounted while a provider switch still holds the previous ready state", async () => {
@@ -305,8 +406,52 @@ function findElements(node, type) {
   return own.concat((node.children ?? []).flatMap((child) => findElements(child, type)))
 }
 
+function findElementsByClass(node, className) {
+  if (node === null || node === undefined || typeof node !== "object") return []
+  const classes = typeof node.props?.className === "string" ? node.props.className.split(/\s+/u) : []
+  const own = classes.includes(className) ? [node] : []
+  return own.concat((node.children ?? []).flatMap((child) => findElementsByClass(child, className)))
+}
+
 function textContent(node) {
   if (node === null || node === undefined || typeof node === "boolean") return ""
   if (typeof node === "string" || typeof node === "number") return String(node)
   return (node.children ?? []).map(textContent).join("")
+}
+
+function fakeElement(tagName) {
+  return {
+    tagName,
+    dataset: {},
+    hidden: false,
+    attributes: {},
+    children: [],
+    setAttribute(name, value) { this.attributes[name] = value },
+    append(...children) { this.children.push(...children) },
+    after() {},
+    remove() {
+      if (this.dataset.dshDeepseekAccountNavIcon !== undefined) this.removed = true
+    },
+  }
+}
+
+function fakeNavButton(label) {
+  const original = fakeElement("svg")
+  const button = {
+    inserted: undefined,
+    isConnected: true,
+    querySelector(selector) {
+      if (selector === "[data-dsh-deepseek-account-nav-icon]") return this.inserted
+      if (selector === "svg") return original
+      return undefined
+    },
+    querySelectorAll(selector) {
+      return selector === "span" ? [{ textContent: label }] : []
+    },
+  }
+  original.after = (element) => {
+    button.inserted = element
+    element.remove = () => { button.inserted = undefined }
+  }
+  return { button, original }
 }

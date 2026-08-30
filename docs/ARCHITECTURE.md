@@ -18,6 +18,8 @@ browser account client ──> sidebar + DeepSeek settings
           │
           ├── optional /grok-auth RPC  ──> remaining % + current reset window
           └── optional /dsh-codex RPC  ──> remaining % + 5-hour/weekly reset windows
+
+current session list ── running true→false ──> one forced account refresh
 ```
 
 充值是独立路径：浏览器只打开固定的 `https://platform.deepseek.com/balance`。插件不参与该网页的登录、Cookie 或付款请求。
@@ -58,9 +60,15 @@ await balance.read({ force? })
 - 调用 DeepSeek、Grok 或 Codex 的本地 RPC；
 - 再次校验所有跨 RPC 数据；
 - 注册侧栏与设置页；
+- 监听当前会话的运行结束边沿，并刷新一次当前 Provider；
+- 在 Harness 尚未提供 settings section 图标接口时，只对中英文“DeepSeek 账户”导航行挂载可清理的鲸鱼图标；
 - 注册中英文文案和局部样式。
 
 客户端只依赖投影后的账户状态。`scripts/build.mjs` 会复制确定性产物，并拒绝包含 `DEEPSEEK_API_KEY`、credential resolution 或 Authorization header 特征的客户端文件。
+
+完成刷新只观察 `ctx.sessions.list` 已公开的 `current` 与 `running` 状态。同一会话仅在 `true → false` 时触发；初始空闲、重复空闲通知和切换到另一个空闲会话都不能触发。不要为此增加定时轮询或读取完整对话日志。
+
+设置导航图标 adapter 只匹配插件拥有的中英文 label，保留并隐藏 Harness 原图标，重复 DOM 通知不得重复挂载；插件卸载时必须断开观察并恢复原图标。Harness 将来提供正式 section 图标接口后，应删除这个临时 adapter。
 
 ### Optional Provider adapters
 
