@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.3 - 2026-08-30
+
+- Keep the sidebar mounted while switching from a ready Provider to DeepSeek, an unknown Provider fallback, or Codex, instead of rendering the previous Provider's incompatible state shape.
+- Preserve Grok and Codex plugin ownership without changing their authentication, models, settings, or RPC behavior.
+- Refactor the bilingual README and add architecture, maintenance, support, conduct, issue, and pull-request guidance for community ownership.
+
 ## 0.1.2 - 2026-08-30
 
 - Republish the corrected provider-aware sidebar release exclusively through the repository's GitHub Actions Trusted Publisher workflow.

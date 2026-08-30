@@ -162,3 +162,53 @@ test("projects only Grok and Codex reset windows from their existing optional RP
   })
   assert.equal(JSON.stringify(codex).includes("usedPercent"), false)
 })
+
+test("keeps the sidebar mounted while a provider switch still holds the previous ready state", async () => {
+  const source = await fs.readFile(path.join(root, "client.js"), "utf8")
+
+  for (const provider of ["deepseek", "codex"]) {
+    const hookStates = [
+      provider,
+      { provider: "grok", status: "ready", periodKind: "weekly", resetsAt: "2026-09-01T00:00:00.000Z" },
+      false,
+    ]
+    let definition
+    const React = {
+      Fragment: Symbol("Fragment"),
+      createElement(type, props, ...children) { return { type, props, children } },
+      useCallback(callback) { return callback },
+      useEffect() {},
+      useState(initial) {
+        const value = hookStates.length === 0 ? initial : hookStates.shift()
+        return [value, () => {}]
+      },
+    }
+    vm.runInNewContext(source, {
+      window: { __ModuleLoader__: { load(value) { definition = value } } },
+      document: {
+        head: { append() {} },
+        createElement: () => ({ dataset: {}, remove() {}, textContent: "" }),
+        querySelector: () => null,
+      },
+    })
+    const plugin = definition.factory(() => React)
+    const registrations = []
+    plugin.apply({
+      connection: { rpc: { call() {} } },
+      effect(callback) { callback() },
+      locale: { register() {}, bind: () => (key) => key },
+      slots: {
+        inject(_name, callback) { callback() },
+        register(options, component) { registrations.push({ options, component }) },
+      },
+      sessions: { list: { getSnapshot: () => ({ current: undefined }), subscribe: () => () => {} } },
+      modelDirectories: { directoryFor: () => { throw new Error("no active session") } },
+    })
+
+    const sidebar = registrations.find(({ options }) => options.name === "sidebar.footer.action")
+    assert.doesNotThrow(
+      () => sidebar.component({ wide: true, ...sidebar.options.inject() }),
+      `switching from Grok to ${provider} must not unmount the sidebar`,
+    )
+  }
+})
