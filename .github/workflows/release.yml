@@ -1,0 +1,168 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Exact package version without v
+        required: true
+        type: string
+      publish:
+        description: Publish the fixed candidate
+        required: true
+        default: false
+        type: boolean
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.repository }}-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  candidate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      PACKAGE_FILE: dsh-deepseek-account-${{ inputs.version }}.tgz
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Verify main and requested version
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: |
+          set -eu
+          test "$GITHUB_REF" = refs/heads/main
+          node --input-type=module -e '
+            import fs from "node:fs"
+            const p = JSON.parse(fs.readFileSync("package.json", "utf8"))
+            if (p.name !== "dsh-deepseek-account" || p.version !== process.env.REQUESTED_VERSION) process.exit(1)
+          '
+      - run: npm ci --ignore-scripts --omit=peer
+      - run: npm run check
+      - name: Build the candidate exactly once
+        run: |
+          set -eu
+          npm pack --ignore-scripts
+          shasum -a 256 "$PACKAGE_FILE" | tee "$PACKAGE_FILE.sha256"
+          node --input-type=module -e '
+            import { createHash } from "node:crypto"
+            import fs from "node:fs"
+            const file = process.env.PACKAGE_FILE
+            const sri = `sha512-${createHash("sha512").update(fs.readFileSync(file)).digest("base64")}`
+            fs.writeFileSync(`${file}.sri`, `${sri}\n`)
+          '
+          tar -tzf "$PACKAGE_FILE" | sort > "$PACKAGE_FILE.files.txt"
+        env:
+          PACKAGE_FILE: ${{ env.PACKAGE_FILE }}
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: dsh-deepseek-account-${{ inputs.version }}-${{ github.sha }}
+          if-no-files-found: error
+          retention-days: 90
+          path: |
+            ${{ env.PACKAGE_FILE }}
+            ${{ env.PACKAGE_FILE }}.sha256
+            ${{ env.PACKAGE_FILE }}.sri
+            ${{ env.PACKAGE_FILE }}.files.txt
+
+  publish:
+    if: inputs.publish && github.ref == 'refs/heads/main'
+    needs: candidate
+    runs-on: ubuntu-latest
+    environment: npm-release
+    permissions:
+      contents: write
+      id-token: write
+    env:
+      PACKAGE_FILE: dsh-deepseek-account-${{ inputs.version }}.tgz
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+          package-manager-cache: false
+          registry-url: https://registry.npmjs.org/
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: dsh-deepseek-account-${{ inputs.version }}-${{ github.sha }}
+          path: .
+      - name: Verify candidate checksum
+        run: shasum -a 256 -c "$PACKAGE_FILE.sha256"
+      - name: Freeze the source tag and draft Release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: |
+          set -eu
+          tag="v$REQUESTED_VERSION"
+          if git rev-parse "$tag" >/dev/null 2>&1; then
+            test "$(git rev-list -n 1 "$tag")" = "$GITHUB_SHA"
+          else
+            git config user.name github-actions[bot]
+            git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+            git tag -a "$tag" "$GITHUB_SHA" -m "dsh-deepseek-account $tag"
+            git push origin "$tag"
+          fi
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            gh release create "$tag" "$PACKAGE_FILE" --draft --title "dsh-deepseek-account $tag" --notes-file "docs/releases/$tag.md" --verify-tag
+          fi
+      - name: Detect Registry state
+        id: registry
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: |
+          set -eu
+          mkdir -p registry
+          if npm view "dsh-deepseek-account@$REQUESTED_VERSION" version >/dev/null 2>&1; then
+            npm pack "dsh-deepseek-account@$REQUESTED_VERSION" --pack-destination registry
+            cmp "$PACKAGE_FILE" "registry/$PACKAGE_FILE"
+            echo state=identical >> "$GITHUB_OUTPUT"
+          elif npm view dsh-deepseek-account name >/dev/null 2>&1; then
+            echo state=existing-package >> "$GITHUB_OUTPUT"
+          else
+            test "$REQUESTED_VERSION" = 0.1.0
+            echo state=bootstrap >> "$GITHUB_OUTPUT"
+          fi
+      - name: Publish bootstrap package
+        if: steps.registry.outputs.state == 'bootstrap'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_BOOTSTRAP_TOKEN }}
+        run: |
+          test -n "$NODE_AUTH_TOKEN"
+          npm publish "./$PACKAGE_FILE" --access public --provenance
+      - name: Publish with Trusted Publisher
+        if: steps.registry.outputs.state == 'existing-package'
+        run: npm publish "./$PACKAGE_FILE" --access public --provenance
+      - name: Wait for Registry and compare bytes
+        if: steps.registry.outputs.state != 'identical'
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: |
+          set -eu
+          for attempt in $(seq 1 20); do
+            if npm pack "dsh-deepseek-account@$REQUESTED_VERSION" --pack-destination registry; then break; fi
+            sleep 15
+          done
+          cmp "$PACKAGE_FILE" "registry/$PACKAGE_FILE"
+          npm audit signatures
+      - name: Publish the verified GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: |
+          set -eu
+          tag="v$REQUESTED_VERSION"
+          test "$(git rev-list -n 1 "$tag")" = "$GITHUB_SHA"
+          gh release edit "$tag" --draft=false --latest
