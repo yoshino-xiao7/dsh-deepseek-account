@@ -242,9 +242,8 @@ window.__ModuleLoader__.load({
     function mountSettingsNavIcon(button) {
       const existing = button?.querySelector?.("[data-dsh-deepseek-account-nav-icon]")
       if (existing !== null && existing !== undefined) return undefined
-      const original = button?.querySelector?.("svg")
+      const original = button?.querySelector?.("svg:not([data-dsh-deepseek-account-nav-icon])")
       if (original === null || original === undefined || typeof document.createElementNS !== "function") return undefined
-      const wasHidden = original.hidden === true
       const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg")
       icon.dataset.dshDeepseekAccountNavIcon = ""
       icon.setAttribute("viewBox", "0 0 24 24")
@@ -257,15 +256,37 @@ window.__ModuleLoader__.load({
       const path = document.createElementNS("http://www.w3.org/2000/svg", "path")
       path.setAttribute("d", providerIconPaths.deepseek)
       icon.append(path)
-      original.hidden = true
       original.after(icon)
+      const hidden = new Map()
+      const refresh = () => {
+        const current = button.querySelector?.("svg:not([data-dsh-deepseek-account-nav-icon])")
+        if (current === null || current === undefined) return
+        if (!hidden.has(current)) {
+          hidden.set(current, {
+            hidden: current.hidden === true,
+            display: current.style?.getPropertyValue?.("display") ?? "",
+            priority: current.style?.getPropertyPriority?.("display") ?? "",
+          })
+        }
+        current.hidden = true
+        current.style?.setProperty?.("display", "none", "important")
+        if (button.querySelector?.("[data-dsh-deepseek-account-nav-icon]") !== icon) current.after(icon)
+      }
+      refresh()
       let mounted = true
-      return () => {
+      const cleanup = () => {
         if (!mounted) return
         mounted = false
-        original.hidden = wasHidden
+        for (const [element, previous] of hidden) {
+          element.hidden = previous.hidden
+          if (previous.display === "") element.style?.removeProperty?.("display")
+          else element.style?.setProperty?.("display", previous.display, previous.priority)
+        }
+        hidden.clear()
         icon.remove()
       }
+      cleanup.refresh = refresh
+      return cleanup
     }
 
     function installSettingsNavIcon() {
@@ -277,10 +298,10 @@ window.__ModuleLoader__.load({
           if (button.isConnected === false) { cleanup(); mounted.delete(button) }
         }
         for (const button of document.body.querySelectorAll("button")) {
-          if (mounted.has(button)) continue
           const matches = Array.from(button.querySelectorAll?.("span") ?? [])
             .some((node) => labels.has(node.textContent?.trim()))
           if (!matches) continue
+          if (mounted.has(button)) { mounted.get(button).refresh(); continue }
           const cleanup = mountSettingsNavIcon(button)
           if (cleanup !== undefined) mounted.set(button, cleanup)
         }
@@ -319,7 +340,7 @@ window.__ModuleLoader__.load({
       }, wide
         ? React.createElement(React.Fragment, null,
           React.createElement("span", { className: "dsh-deepseek-account-symbol", "aria-hidden": "true" }, ProviderIcon({ provider })),
-          React.createElement("span", { className: "dsh-deepseek-account-copy" }, React.createElement("span", null, presentation.label),
+          React.createElement("span", { className: "dsh-deepseek-account-copy" },
             SidebarDetails({ provider, state: currentState, presentation, t })),
           React.createElement("span", { "aria-hidden": "true" }, busy ? "…" : "↻"))
         : ProviderIcon({ provider }))
@@ -353,8 +374,8 @@ window.__ModuleLoader__.load({
       if (document.querySelector('style[data-dsh-deepseek-account]')) return () => {}
       const style = document.createElement("style")
       style.dataset.dshDeepseekAccount = ""
-      style.textContent = ".dsh-deepseek-account-card{display:grid;width:100%;min-height:48px;margin:3px 0;padding:4px 3px;border:0;border-radius:8px;grid-template-columns:22px minmax(0,1fr) 16px;align-items:center;gap:10px;color:inherit;background:transparent;cursor:pointer;font:inherit;text-align:left}.dsh-deepseek-account-card:hover,.dsh-deepseek-account-rail:hover{background:var(--dsw-alias-interactive-bg-hover)}.dsh-deepseek-account-symbol{font-weight:650;text-align:center}.dsh-deepseek-account-copy{display:flex;min-width:0;flex-direction:column}.dsh-deepseek-account-copy small{overflow:hidden;color:var(--dsw-alias-label-tertiary);font-size:11px;text-overflow:ellipsis;white-space:nowrap}.dsh-deepseek-account-rail{display:grid;width:36px;height:36px;margin:4px auto;border:0;border-radius:8px;place-items:center;color:inherit;background:transparent;cursor:pointer;font-size:10px;font-weight:650}.dsh-deepseek-account-page{box-sizing:border-box;width:min(860px,100%);padding:8px 4px 40px;color:var(--dsw-alias-label-primary)}.dsh-deepseek-account-page h2{margin:0}.dsh-deepseek-account-description{color:var(--dsw-alias-label-secondary)}.dsh-deepseek-account-panel{margin-top:14px;padding:18px;border:1px solid var(--dsw-alias-border-l2);border-radius:16px;background:var(--dsw-alias-bg-layer-1)}.dsh-deepseek-account-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.dsh-deepseek-account-head h3{margin:0}.dsh-deepseek-account-head button,.dsh-deepseek-account-topup{min-height:34px;border:1px solid var(--dsw-alias-border-l2);border-radius:999px;padding:0 13px;color:inherit;background:transparent;font:inherit}.dsh-deepseek-account-balances{display:grid;margin-top:14px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}.dsh-deepseek-account-balance{display:flex;flex-direction:column;gap:5px;padding:14px;border-radius:12px;background:var(--dsw-alias-bg-layer-2,var(--dsw-alias-interactive-bg-hover))}.dsh-deepseek-account-balance strong{font-size:22px}.dsh-deepseek-account-balance span,.dsh-deepseek-account-panel p,.dsh-deepseek-account-panel small{color:var(--dsw-alias-label-secondary);font-size:12px}.dsh-deepseek-account-warning{color:var(--dsw-alias-state-warn-label)!important}.dsh-deepseek-account-topup{display:inline-flex;align-items:center;color:#fff;text-decoration:none;background:var(--dsw-alias-state-business-primary)}"
-      style.textContent += ".dsh-deepseek-account-provider-icon{display:block;width:18px;height:18px;margin:auto}.dsh-deepseek-account-copy{gap:2px}.dsh-deepseek-account-copy small{overflow:visible;line-height:1.35;overflow-wrap:anywhere;text-overflow:clip;white-space:normal}.dsh-deepseek-account-quota-windows{display:grid;gap:4px;margin-top:2px}.dsh-deepseek-account-quota-window{display:grid;min-width:0;padding:3px 5px;border-radius:5px;grid-template-columns:auto minmax(0,1fr);align-items:baseline;column-gap:6px;background:var(--dsw-alias-bg-layer-2,var(--dsw-alias-interactive-bg-hover))}.dsh-deepseek-account-quota-period{font-size:11px;font-weight:650}.dsh-deepseek-account-quota-remaining{min-width:0;color:var(--dsw-alias-label-secondary);font-size:11px;font-weight:600}.dsh-deepseek-account-quota-reset{grid-column:1/-1;font-size:10px!important;line-height:1.25!important}"
+      style.textContent = ".dsh-deepseek-account-card{display:grid;width:100%;min-height:48px;margin:3px 0;padding:4px 3px;border:0;border-radius:8px;grid-template-columns:22px minmax(0,1fr) 16px;align-items:center;gap:10px;color:inherit;background:transparent;cursor:pointer;font:inherit;text-align:left}.dsh-deepseek-account-card:hover{background:transparent}.dsh-deepseek-account-rail:hover{background:var(--dsw-alias-interactive-bg-hover)}.dsh-deepseek-account-symbol{font-weight:650;text-align:center}.dsh-deepseek-account-copy{display:flex;min-width:0;flex-direction:column}.dsh-deepseek-account-copy small{overflow:hidden;color:var(--dsw-alias-label-tertiary);font-size:11px;text-overflow:ellipsis;white-space:nowrap}.dsh-deepseek-account-rail{display:grid;width:36px;height:36px;margin:4px auto;border:0;border-radius:8px;place-items:center;color:inherit;background:transparent;cursor:pointer;font-size:10px;font-weight:650}.dsh-deepseek-account-page{box-sizing:border-box;width:min(860px,100%);padding:8px 4px 40px;color:var(--dsw-alias-label-primary)}.dsh-deepseek-account-page h2{margin:0}.dsh-deepseek-account-description{color:var(--dsw-alias-label-secondary)}.dsh-deepseek-account-panel{margin-top:14px;padding:18px;border:1px solid var(--dsw-alias-border-l2);border-radius:16px;background:var(--dsw-alias-bg-layer-1)}.dsh-deepseek-account-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.dsh-deepseek-account-head h3{margin:0}.dsh-deepseek-account-head button,.dsh-deepseek-account-topup{min-height:34px;border:1px solid var(--dsw-alias-border-l2);border-radius:999px;padding:0 13px;color:inherit;background:transparent;font:inherit}.dsh-deepseek-account-balances{display:grid;margin-top:14px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}.dsh-deepseek-account-balance{display:flex;flex-direction:column;gap:5px;padding:14px;border-radius:12px;background:var(--dsw-alias-bg-layer-2,var(--dsw-alias-interactive-bg-hover))}.dsh-deepseek-account-balance strong{font-size:22px}.dsh-deepseek-account-balance span,.dsh-deepseek-account-panel p,.dsh-deepseek-account-panel small{color:var(--dsw-alias-label-secondary);font-size:12px}.dsh-deepseek-account-warning{color:var(--dsw-alias-state-warn-label)!important}.dsh-deepseek-account-topup{display:inline-flex;align-items:center;color:#fff;text-decoration:none;background:var(--dsw-alias-state-business-primary)}"
+      style.textContent += ".dsh-deepseek-account-provider-icon{display:block;width:18px;height:18px;margin:auto}.dsh-deepseek-account-copy{gap:2px}.dsh-deepseek-account-copy small{overflow:visible;line-height:1.35;overflow-wrap:anywhere;text-overflow:clip;white-space:normal}.dsh-deepseek-account-quota-windows{display:grid;gap:4px}.dsh-deepseek-account-quota-window{display:grid;min-width:0;padding:1px 0;border-radius:0;grid-template-columns:auto minmax(0,1fr);align-items:baseline;column-gap:6px;background:transparent}.dsh-deepseek-account-quota-period{font-size:11px;font-weight:650}.dsh-deepseek-account-quota-remaining{min-width:0;color:var(--dsw-alias-label-secondary);font-size:11px;font-weight:600}.dsh-deepseek-account-quota-reset{grid-column:1/-1;font-size:10px!important;line-height:1.25!important}"
       document.head.append(style)
       return () => style.remove()
     }

@@ -34,14 +34,14 @@ DeepSeek Harness 的独立账户插件：在一个侧栏入口中展示当前对
 安装当前稳定版本：
 
 ```sh
-dsh plugin --profile web add dsh-deepseek-account@0.1.5
+dsh plugin --profile web add dsh-deepseek-account@0.1.6
 dsh web
 ```
 
 打开当前对话的 Web 界面后：
 
-1. 侧栏底部会显示当前 Provider 的账户信息；点击可手动刷新，每轮对话结束后也会主动刷新一次。
-2. 设置导航使用 DeepSeek 鲸鱼图标；“DeepSeek 账户”页面可查看 CNY/USD 的总余额、赠送余额和充值余额。
+1. 侧栏底部以 Provider 图标标识当前账户来源，直接显示无额外底色的账户信息；点击可手动刷新，每轮对话结束后也会主动刷新一次。
+2. 设置导航用 DeepSeek 鲸鱼图标原位替换通用齿轮；“DeepSeek 账户”页面可查看 CNY/USD 的总余额、赠送余额和充值余额。
 3. “登录并充值”只会在新页面打开 `https://platform.deepseek.com/balance`。
 
 升级时继续使用精确版本，避免预发布阶段的依赖漂移：

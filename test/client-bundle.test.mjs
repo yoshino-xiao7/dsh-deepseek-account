@@ -164,9 +164,10 @@ test("projects only bounded Grok and Codex quota fields from their optional RPC 
   assert.equal(JSON.stringify(codex).includes("usedPercent"), false)
 })
 
-test("renders provider icons plus complete Grok and Codex quota lines", async () => {
+test("renders icon-only provider identity and background-free account details", async () => {
   const source = await fs.readFile(path.join(root, "client.js"), "utf8")
-  assert.match(source, /\.dsh-deepseek-account-quota-window\{/u)
+  assert.match(source, /\.dsh-deepseek-account-card:hover\{background:transparent\}/u)
+  assert.match(source, /\.dsh-deepseek-account-quota-window\{[^}]*background:transparent/u)
   const cases = [{
     provider: "grok",
     state: {
@@ -178,6 +179,7 @@ test("renders provider icons plus complete Grok and Codex quota lines", async ()
     },
     expected: [["remaining", "75%"], ["weekly", "resetsAt"]],
     icon: "grok",
+    visibleLabel: "grokQuota",
   }, {
     provider: "codex",
     state: {
@@ -190,6 +192,7 @@ test("renders provider icons plus complete Grok and Codex quota lines", async ()
     },
     expected: [["fiveHour", "remaining", "80%", "resetsAt"], ["weekly", "remaining", "60%", "resetsAt"]],
     icon: "codex",
+    visibleLabel: "codexQuota",
   }, {
     provider: "deepseek",
     state: {
@@ -201,9 +204,10 @@ test("renders provider icons plus complete Grok and Codex quota lines", async ()
     },
     expected: [["¥12.30"]],
     icon: "deepseek",
+    visibleLabel: "balance",
   }]
 
-  for (const { provider, state, expected, icon } of cases) {
+  for (const { provider, state, expected, icon, visibleLabel } of cases) {
     const hookStates = [provider, state, false]
     let definition
     const React = {
@@ -243,6 +247,10 @@ test("renders provider icons plus complete Grok and Codex quota lines", async ()
     const icons = findElements(tree, "svg")
     assert.equal(icons.length, 1, `${provider} must render one provider icon`)
     assert.equal(icons[0].props["data-provider-icon"], icon)
+    const copy = findElementsByClass(tree, "dsh-deepseek-account-copy")
+    assert.equal(copy.length, 1)
+    assert.doesNotMatch(textContent(copy[0]), new RegExp(visibleLabel), `${provider} must not repeat its identity beside the icon`)
+    assert.match(tree.props["aria-label"], new RegExp(visibleLabel), `${provider} must retain an accessible label`)
     const lines = provider === "codex"
       ? findElementsByClass(tree, "dsh-deepseek-account-quota-window").map(textContent)
       : findElements(tree, "small").map(textContent)
@@ -336,6 +344,8 @@ test("replaces only the DeepSeek account settings gear and restores it on cleanu
 
   const cleanup = plugin.installSettingsNavIcon()
   assert.equal(deepseek.original.hidden, true)
+  assert.equal(deepseek.original.style.getPropertyValue("display"), "none")
+  assert.equal(deepseek.original.style.getPropertyPriority("display"), "important")
   assert.equal(deepseek.button.inserted.dataset.dshDeepseekAccountNavIcon, "")
   assert.equal(unrelated.original.hidden, false, "an unrelated settings row must retain its icon")
   assert.equal(unrelated.button.inserted, undefined)
@@ -344,9 +354,19 @@ test("replaces only the DeepSeek account settings gear and restores it on cleanu
   observer.callback()
   assert.equal(created.filter(({ tagName }) => tagName === "svg").length, 1, "a repeated scan must not add another icon")
 
+  const replacement = deepseek.replaceOriginal()
+  observer.callback()
+  assert.equal(replacement.hidden, true, "a host re-render must not restore the gear")
+  assert.equal(replacement.style.getPropertyValue("display"), "none")
+  assert.equal(replacement.style.getPropertyPriority("display"), "important")
+  assert.equal(created.filter(({ tagName }) => tagName === "svg").length, 1, "a host re-render must retain one whale icon")
+
   cleanup()
   assert.equal(observer.disconnected, true)
   assert.equal(deepseek.original.hidden, false)
+  assert.equal(deepseek.original.style.getPropertyValue("display"), "")
+  assert.equal(replacement.hidden, false)
+  assert.equal(replacement.style.getPropertyValue("display"), "")
   assert.equal(deepseek.button.inserted, undefined)
 })
 
@@ -420,13 +440,21 @@ function textContent(node) {
 }
 
 function fakeElement(tagName) {
+  const styles = new Map()
   return {
     tagName,
     dataset: {},
     hidden: false,
     attributes: {},
     children: [],
+    style: {
+      getPropertyValue(name) { return styles.get(name)?.value ?? "" },
+      getPropertyPriority(name) { return styles.get(name)?.priority ?? "" },
+      setProperty(name, value, priority = "") { styles.set(name, { value, priority }) },
+      removeProperty(name) { styles.delete(name) },
+    },
     setAttribute(name, value) { this.attributes[name] = value },
+    removeAttribute(name) { delete this.attributes[name] },
     append(...children) { this.children.push(...children) },
     after() {},
     remove() {
@@ -437,12 +465,13 @@ function fakeElement(tagName) {
 
 function fakeNavButton(label) {
   const original = fakeElement("svg")
+  let currentOriginal = original
   const button = {
     inserted: undefined,
     isConnected: true,
     querySelector(selector) {
       if (selector === "[data-dsh-deepseek-account-nav-icon]") return this.inserted
-      if (selector === "svg") return original
+      if (selector === "svg" || selector === "svg:not([data-dsh-deepseek-account-nav-icon])") return currentOriginal
       return undefined
     },
     querySelectorAll(selector) {
@@ -453,5 +482,13 @@ function fakeNavButton(label) {
     button.inserted = element
     element.remove = () => { button.inserted = undefined }
   }
-  return { button, original }
+  return {
+    button,
+    original,
+    replaceOriginal() {
+      currentOriginal = fakeElement("svg")
+      currentOriginal.after = original.after
+      return currentOriginal
+    },
+  }
 }
