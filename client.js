@@ -193,7 +193,8 @@ window.__ModuleLoader__.load({
     function SidebarBalance({ wide, ctx, client, t }) {
       const provider = useActiveAccountProvider(ctx)
       const { state, busy, refresh } = useAccount(client, provider)
-      const presentation = sidebarPresentation(provider, state, t)
+      const currentState = state.provider === provider ? state : { provider, status: "loading" }
+      const presentation = sidebarPresentation(provider, currentState, t)
       return React.createElement("button", {
         type: "button", className: wide ? "dsh-deepseek-account-card" : "dsh-deepseek-account-rail",
         disabled: busy, onClick: () => void refresh(true), "aria-label": `${presentation.label} ${presentation.summary}`,

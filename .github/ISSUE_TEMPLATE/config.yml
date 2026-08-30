@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/yoshino-xiao7/dsh-deepseek-account/security/advisories/new
+    about: 请私下报告凭据、权限或数据安全问题。
+  - name: DeepSeek account and billing support
+    url: https://platform.deepseek.com/
+    about: 账户、充值和付款结果请联系 DeepSeek 官方支持。

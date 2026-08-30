@@ -1,35 +1,103 @@
 # dsh-deepseek-account
 
-An independent DeepSeek Harness account plugin that:
+[![CI](https://github.com/yoshino-xiao7/dsh-deepseek-account/actions/workflows/ci.yml/badge.svg)](https://github.com/yoshino-xiao7/dsh-deepseek-account/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/dsh-deepseek-account.svg)](https://www.npmjs.com/package/dsh-deepseek-account)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-- shows the balance associated with the configured DeepSeek API key when the current conversation selects DeepSeek or an unknown custom Provider;
-- shows the reset time for Grok usage and the five-hour and weekly reset times for Codex usage when either Provider is selected;
-- presents CNY/USD total, granted, and topped-up balances in a dedicated settings page;
-- opens the official DeepSeek Platform for web sign-in and top-up.
+An independent account plugin for DeepSeek Harness. It uses one sidebar entry to show account information for the Provider selected by the current conversation and provides an official top-up entry for DeepSeek.
 
-The sidebar shows exactly one item for the Provider selected by the current conversation. Grok and Codex data is read on demand through their existing local RPCs; this plugin does not change or take over either Provider plugin's authentication, models, settings, or other behavior. If either optional plugin is absent, only that Provider's quota source is unavailable while DeepSeek balance and top-up continue to work independently. Unknown custom Providers fall back to DeepSeek.
+> This plugin only reads account status and opens an official page. It never reads web cookies, account passwords, or payment details, and it never signs in or pays on a user's behalf.
 
-Only DeepSeek has a top-up entry. Grok and Codex show reset times only.
+[中文](README.md) · [Contributing](CONTRIBUTING.md) · [Architecture](docs/ARCHITECTURE.md) · [Security](SECURITY.md)
 
-## Security boundary
+## Capabilities and boundaries
 
-`DEEPSEEK_API_KEY` is resolved only by the Host through the Harness credential service. The browser can request only a validated balance snapshot through a loopback-only RPC. The build fails if the client artifact contains credential resolution or an Authorization header.
+| Current Provider | Sidebar content | Data source | Provider plugin required |
+| --- | --- | --- | --- |
+| DeepSeek | Balance for the configured API key | Official DeepSeek `/user/balance` | No |
+| Grok | Quota reset time | Existing local RPC from the Grok plugin | Yes |
+| Codex | Five-hour and weekly reset times | Existing local RPC from the Codex plugin | Yes |
+| Unknown custom Provider | Falls back to the DeepSeek balance | Official DeepSeek `/user/balance` | No |
 
-The top-up destination is fixed to `https://platform.deepseek.com/balance`; sign-in and payment happen entirely on the official DeepSeek website.
+The sidebar always shows exactly one item for the Provider selected by the current conversation. Grok and Codex are optional data sources; this plugin does not take over their authentication, models, settings, or other behavior. If an optional plugin is missing, its quota source is shown as unavailable while DeepSeek balance and top-up remain independent.
+
+Only DeepSeek has a top-up entry. Grok and Codex show reset times only; this plugin neither shows nor infers remaining quota.
 
 ## Installation
 
-After the formal release, install the exact version:
+Requirements:
+
+- Node.js `>=22.19.0 <25`
+- DeepSeek Harness in the `0.1.1-rc.2` line
+- `DEEPSEEK_API_KEY` configured in Harness model settings when reading a DeepSeek balance
+
+Install the current stable version:
 
 ```sh
-dsh plugin --profile web add dsh-deepseek-account@0.1.2
+dsh plugin --profile web add dsh-deepseek-account@0.1.3
 dsh web
 ```
 
-## Development
+In the current conversation's Web UI:
+
+1. The sidebar footer shows account information for the current Provider; click it to refresh.
+2. The “DeepSeek account” settings page shows CNY/USD total, granted, and topped-up balances.
+3. “Sign in and top up” opens only `https://platform.deepseek.com/balance` in a new page.
+
+Continue to pin an exact version when upgrading so pre-release dependencies cannot drift:
 
 ```sh
-npm run check
+dsh plugin --profile web add dsh-deepseek-account@<version>
+dsh web
 ```
 
-The release branch is `yukiryou/v0.1.2`. `dist/` is generated during build and packaging and is not committed.
+## Common states
+
+| UI message | Meaning | Suggested action |
+| --- | --- | --- |
+| Configure an API key | Harness credential service did not resolve `DEEPSEEK_API_KEY` | Configure it in model settings; never post the key in an issue or log |
+| API key rejected | DeepSeek returned 401/403 | Replace or reconfigure the key |
+| Too many requests | DeepSeek returned 429 | Wait before retrying; do not refresh repeatedly |
+| Showing the last verified balance | The current request failed and the plugin retained a marked stale snapshot | Check the network, retry later, and note the timestamp |
+| Quota source unavailable | The Grok/Codex plugin is absent, stopped, or exposes an incompatible local RPC | Check that plugin; DeepSeek remains unaffected |
+
+Automatic reads are cached for up to five minutes, manual refreshes for 30 seconds, and concurrent reads are coalesced into one request.
+
+## Security design
+
+- `DEEPSEEK_API_KEY` is resolved only on the Host through the Harness credential service.
+- The browser receives only a strictly projected balance snapshot over a loopback-only RPC.
+- Upstream responses are limited to 32 KiB and monetary values remain decimal strings.
+- The build rejects client artifacts containing credential resolution or an Authorization header.
+- The top-up destination is fixed to the official DeepSeek page; the plugin has no payment authority.
+
+Report vulnerabilities privately according to [SECURITY.md](SECURITY.md). Never put real credentials, cookies, balances, or payment data in public issues, screenshots, or test fixtures.
+
+## Development and contribution
+
+```sh
+git clone https://github.com/yoshino-xiao7/dsh-deepseek-account.git
+cd dsh-deepseek-account
+npm ci --ignore-scripts --omit=peer
+npm run check
+npm run pack:check
+```
+
+`npm run check` runs the Node.js tests followed by a deterministic build. `dist/` is generated and must not be committed. CI exercises the same interfaces on Node.js 22/24 and Linux, macOS, and Windows.
+
+Read these before changing the project:
+
+- [CONTRIBUTING.md](CONTRIBUTING.md) for branches, tests, pull requests, and change boundaries
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the Host, loopback RPC, browser, and optional-Provider seams
+- [docs/MAINTAINING.md](docs/MAINTAINING.md) for triage, compatibility, and trusted releases
+- [SUPPORT.md](SUPPORT.md) to choose the right support channel
+
+## Project status
+
+Automated checks cover response projection, caching/rate limiting, RPC authority, absent optional plugins, Provider selection, client credential isolation, cross-platform builds, and package contents.
+
+These checks are not real-account acceptance. Maintainers do not put real API keys in CI and do not automate web sign-in or payment. Version-specific verification scope is recorded under [docs/releases](docs/releases) and in [CHANGELOG.md](CHANGELOG.md).
+
+## License
+
+[MIT](LICENSE)
