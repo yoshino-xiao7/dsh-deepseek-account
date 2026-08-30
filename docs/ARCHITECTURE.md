@@ -68,7 +68,7 @@ await balance.read({ force? })
 
 完成刷新只观察 `ctx.sessions.list` 已公开的 `current` 与 `running` 状态。同一会话仅在 `true → false` 时触发；初始空闲、重复空闲通知和切换到另一个空闲会话都不能触发。不要为此增加定时轮询或读取完整对话日志。
 
-设置导航图标 adapter 只匹配插件拥有的中英文 label，保留并隐藏 Harness 原图标，重复 DOM 通知不得重复挂载；插件卸载时必须断开观察并恢复原图标。Harness 将来提供正式 section 图标接口后，应删除这个临时 adapter。
+设置导航图标 adapter 只匹配插件拥有的中英文 label，以内联高优先级样式隐藏 Harness 原图标并挂载唯一鲸鱼图标。它必须在同一按钮被 Harness 原位重绘后重新隐藏新的原图标，重复 DOM 通知不得重复挂载；插件卸载时必须断开观察、移除鲸鱼并恢复接触过的全部原图标及其原始样式。Harness 将来提供正式 section 图标接口后，应删除这个临时 adapter。
 
 ### Optional Provider adapters
 
