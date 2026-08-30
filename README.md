@@ -23,14 +23,14 @@ DeepSeek Harness 的独立账户插件，负责：
 npm run check
 ```
 
-仓库开发分支为 `yukiryou/v0.1.1`。`dist/` 由构建和打包流程生成，不提交到 Git。
+仓库开发分支为 `yukiryou/v0.1.2`。`dist/` 由构建和打包流程生成，不提交到 Git。
 
 ## 安装
 
 正式发布后安装精确版本：
 
 ```sh
-dsh plugin --profile web add dsh-deepseek-account@0.1.1
+dsh plugin --profile web add dsh-deepseek-account@0.1.2
 dsh web
 ```
 
