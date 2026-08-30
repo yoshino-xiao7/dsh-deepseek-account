@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.2 - 2026-08-30
+
+- Republish the corrected provider-aware sidebar release exclusively through the repository's GitHub Actions Trusted Publisher workflow.
+- Preserve the 0.1.1 runtime behavior without additional Grok or Codex provider changes.
+
 ## 0.1.1 - 2026-08-30
 
 - Make this plugin the sole owner of the provider-aware sidebar account card without changing Grok or Codex plugin behavior.

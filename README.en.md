@@ -22,7 +22,7 @@ The top-up destination is fixed to `https://platform.deepseek.com/balance`; sign
 After the formal release, install the exact version:
 
 ```sh
-dsh plugin --profile web add dsh-deepseek-account@0.1.1
+dsh plugin --profile web add dsh-deepseek-account@0.1.2
 dsh web
 ```
 
@@ -32,4 +32,4 @@ dsh web
 npm run check
 ```
 
-The release branch is `yukiryou/v0.1.1`. `dist/` is generated during build and packaging and is not committed.
+The release branch is `yukiryou/v0.1.2`. `dist/` is generated during build and packaging and is not committed.
