@@ -34,7 +34,7 @@ Requirements:
 Install the current stable version:
 
 ```sh
-dsh plugin --profile web add dsh-deepseek-account@0.1.5
+dsh plugin --profile web add dsh-deepseek-account@0.1.6
 dsh web
 ```
 

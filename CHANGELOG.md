@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.6 - 2026-08-30
 
 - Replace the Harness settings gear with exactly one DeepSeek whale icon even when shell CSS overrides `hidden` or the settings row re-renders in place.
 - Remove visible Provider quota headings and decorative sidebar backgrounds while retaining accessible labels and complete account details.
