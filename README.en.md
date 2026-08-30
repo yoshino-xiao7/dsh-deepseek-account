@@ -34,14 +34,14 @@ Requirements:
 Install the current stable version:
 
 ```sh
-dsh plugin --profile web add dsh-deepseek-account@0.1.4
+dsh plugin --profile web add dsh-deepseek-account@0.1.5
 dsh web
 ```
 
 In the current conversation's Web UI:
 
-1. The sidebar footer shows account information for the current Provider; click it to refresh.
-2. The “DeepSeek account” settings page shows CNY/USD total, granted, and topped-up balances.
+1. The sidebar footer shows account information for the current Provider; click it to refresh, or let it refresh once automatically after each conversation turn finishes.
+2. The settings navigation uses the DeepSeek whale icon; the “DeepSeek account” page shows CNY/USD total, granted, and topped-up balances.
 3. “Sign in and top up” opens only `https://platform.deepseek.com/balance` in a new page.
 
 Continue to pin an exact version when upgrading so pre-release dependencies cannot drift:
@@ -61,7 +61,7 @@ dsh web
 | Showing the last verified balance | The current request failed and the plugin retained a marked stale snapshot | Check the network, retry later, and note the timestamp |
 | Quota source unavailable | The Grok/Codex plugin is absent, stopped, or exposes an incompatible local RPC | Check that plugin; DeepSeek remains unaffected |
 
-Automatic reads are cached for up to five minutes, manual refreshes for 30 seconds, and concurrent reads are coalesced into one request.
+Automatic DeepSeek reads are cached for up to five minutes, forced refreshes for 30 seconds, and concurrent reads are coalesced into one request. After each conversation turn, the plugin observes the current session's running-to-idle edge and refreshes the current Provider without polling.
 
 ## Security design
 

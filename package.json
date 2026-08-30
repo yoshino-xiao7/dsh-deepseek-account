@@ -1,6 +1,6 @@
 {
   "name": "dsh-deepseek-account",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "DeepSeek account balance and official top-up entry for DeepSeek Harness",
   "type": "module",
   "license": "MIT",

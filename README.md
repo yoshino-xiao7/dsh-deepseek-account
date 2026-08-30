@@ -34,14 +34,14 @@ DeepSeek Harness 的独立账户插件：在一个侧栏入口中展示当前对
 安装当前稳定版本：
 
 ```sh
-dsh plugin --profile web add dsh-deepseek-account@0.1.4
+dsh plugin --profile web add dsh-deepseek-account@0.1.5
 dsh web
 ```
 
 打开当前对话的 Web 界面后：
 
-1. 侧栏底部会显示当前 Provider 的账户信息；点击可手动刷新。
-2. 设置页的“DeepSeek 账户”可查看 CNY/USD 的总余额、赠送余额和充值余额。
+1. 侧栏底部会显示当前 Provider 的账户信息；点击可手动刷新，每轮对话结束后也会主动刷新一次。
+2. 设置导航使用 DeepSeek 鲸鱼图标；“DeepSeek 账户”页面可查看 CNY/USD 的总余额、赠送余额和充值余额。
 3. “登录并充值”只会在新页面打开 `https://platform.deepseek.com/balance`。
 
 升级时继续使用精确版本，避免预发布阶段的依赖漂移：
@@ -61,7 +61,7 @@ dsh web
 | 展示上一次成功读取的余额 | 当前请求失败，插件保留了已标记的旧快照 | 检查网络后重试，并留意数据时间 |
 | 额度来源不可用 | Grok/Codex 插件未安装、未运行或其本地 RPC 不兼容 | 检查对应插件；DeepSeek 功能不受影响 |
 
-自动读取最多缓存 5 分钟，手动刷新最多每 30 秒发起一次请求；并发读取会合并为一次请求。
+DeepSeek 自动读取最多缓存 5 分钟，强制刷新最多每 30 秒发起一次上游请求；并发读取会合并为一次请求。每轮对话结束时，插件会监听当前会话由运行变为空闲的边沿并刷新当前 Provider，不使用定时轮询。
 
 ## 安全设计
 

@@ -1,4 +1,4 @@
-/* global document, window */
+/* global document, MutationObserver, window */
 
 window.__ModuleLoader__.load({
   id: "dsh-deepseek-account",
@@ -175,6 +175,26 @@ window.__ModuleLoader__.load({
       return provider
     }
 
+    function subscribeCurrentConversationCompletion(list, onComplete) {
+      const currentState = () => {
+        const snapshot = list.getSnapshot()
+        const sessionId = snapshot.current
+        return { sessionId, running: sessionId === undefined ? false : snapshot.byId?.[sessionId]?.running === true }
+      }
+      let previous = currentState()
+      return list.subscribe(() => {
+        const current = currentState()
+        if (current.sessionId !== undefined && current.sessionId === previous.sessionId && previous.running && !current.running) {
+          onComplete(current.sessionId)
+        }
+        previous = current
+      })
+    }
+
+    function useConversationCompletionRefresh(sessions, refresh) {
+      React.useEffect(() => subscribeCurrentConversationCompletion(sessions.list, () => { void refresh(true) }), [refresh, sessions])
+    }
+
     function accountProvider(selected) {
       return selected === "llm-grok" || selected === "grok" ? "grok" : selected === "dsh-codex" ? "codex" : "deepseek"
     }
@@ -219,9 +239,78 @@ window.__ModuleLoader__.load({
       }, React.createElement("path", { d: providerIconPaths[provider] ?? providerIconPaths.deepseek }))
     }
 
+    function mountSettingsNavIcon(button) {
+      const existing = button?.querySelector?.("[data-dsh-deepseek-account-nav-icon]")
+      if (existing !== null && existing !== undefined) return undefined
+      const original = button?.querySelector?.("svg")
+      if (original === null || original === undefined || typeof document.createElementNS !== "function") return undefined
+      const wasHidden = original.hidden === true
+      const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg")
+      icon.dataset.dshDeepseekAccountNavIcon = ""
+      icon.setAttribute("viewBox", "0 0 24 24")
+      icon.setAttribute("width", "16")
+      icon.setAttribute("height", "16")
+      icon.setAttribute("fill", "currentColor")
+      icon.setAttribute("fill-rule", "evenodd")
+      icon.setAttribute("focusable", "false")
+      icon.setAttribute("aria-hidden", "true")
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path")
+      path.setAttribute("d", providerIconPaths.deepseek)
+      icon.append(path)
+      original.hidden = true
+      original.after(icon)
+      let mounted = true
+      return () => {
+        if (!mounted) return
+        mounted = false
+        original.hidden = wasHidden
+        icon.remove()
+      }
+    }
+
+    function installSettingsNavIcon() {
+      if (typeof MutationObserver !== "function" || document.body?.querySelectorAll === undefined) return () => {}
+      const labels = new Set([dictionaries.zh.nav, dictionaries.en.nav])
+      const mounted = new Map()
+      const scan = () => {
+        for (const [button, cleanup] of mounted) {
+          if (button.isConnected === false) { cleanup(); mounted.delete(button) }
+        }
+        for (const button of document.body.querySelectorAll("button")) {
+          if (mounted.has(button)) continue
+          const matches = Array.from(button.querySelectorAll?.("span") ?? [])
+            .some((node) => labels.has(node.textContent?.trim()))
+          if (!matches) continue
+          const cleanup = mountSettingsNavIcon(button)
+          if (cleanup !== undefined) mounted.set(button, cleanup)
+        }
+      }
+      const observer = new MutationObserver(scan)
+      observer.observe(document.body, { childList: true, subtree: true })
+      scan()
+      return () => {
+        observer.disconnect()
+        for (const cleanup of mounted.values()) cleanup()
+        mounted.clear()
+      }
+    }
+
+    function SidebarDetails({ provider, state, presentation, t }) {
+      if (provider !== "codex" || state.status !== "ready") {
+        return React.createElement(React.Fragment, null, ...presentation.lines.map((line, index) =>
+          React.createElement("small", { key: `${provider}-${index}` }, line)))
+      }
+      return React.createElement("span", { className: "dsh-deepseek-account-quota-windows" }, ...state.windows.map((window) =>
+        React.createElement("span", { className: "dsh-deepseek-account-quota-window", key: window.kind },
+          React.createElement("span", { className: "dsh-deepseek-account-quota-period" }, t(window.kind === "five-hour" ? "fiveHour" : "weekly")),
+          React.createElement("strong", { className: "dsh-deepseek-account-quota-remaining" }, `${t("remaining")} ${percentText(window.remainingPercent)}%`),
+          React.createElement("small", { className: "dsh-deepseek-account-quota-reset" }, `${t("resetsAt")} ${resetTime(window.resetsAt)}`))))
+    }
+
     function SidebarBalance({ wide, ctx, client, t }) {
       const provider = useActiveAccountProvider(ctx)
       const { state, busy, refresh } = useAccount(client, provider)
+      useConversationCompletionRefresh(ctx.sessions, refresh)
       const currentState = state.provider === provider ? state : { provider, status: "loading" }
       const presentation = sidebarPresentation(provider, currentState, t)
       return React.createElement("button", {
@@ -231,7 +320,7 @@ window.__ModuleLoader__.load({
         ? React.createElement(React.Fragment, null,
           React.createElement("span", { className: "dsh-deepseek-account-symbol", "aria-hidden": "true" }, ProviderIcon({ provider })),
           React.createElement("span", { className: "dsh-deepseek-account-copy" }, React.createElement("span", null, presentation.label),
-            ...presentation.lines.map((line, index) => React.createElement("small", { key: `${provider}-${index}` }, line))),
+            SidebarDetails({ provider, state: currentState, presentation, t })),
           React.createElement("span", { "aria-hidden": "true" }, busy ? "…" : "↻"))
         : ProviderIcon({ provider }))
     }
@@ -265,7 +354,7 @@ window.__ModuleLoader__.load({
       const style = document.createElement("style")
       style.dataset.dshDeepseekAccount = ""
       style.textContent = ".dsh-deepseek-account-card{display:grid;width:100%;min-height:48px;margin:3px 0;padding:4px 3px;border:0;border-radius:8px;grid-template-columns:22px minmax(0,1fr) 16px;align-items:center;gap:10px;color:inherit;background:transparent;cursor:pointer;font:inherit;text-align:left}.dsh-deepseek-account-card:hover,.dsh-deepseek-account-rail:hover{background:var(--dsw-alias-interactive-bg-hover)}.dsh-deepseek-account-symbol{font-weight:650;text-align:center}.dsh-deepseek-account-copy{display:flex;min-width:0;flex-direction:column}.dsh-deepseek-account-copy small{overflow:hidden;color:var(--dsw-alias-label-tertiary);font-size:11px;text-overflow:ellipsis;white-space:nowrap}.dsh-deepseek-account-rail{display:grid;width:36px;height:36px;margin:4px auto;border:0;border-radius:8px;place-items:center;color:inherit;background:transparent;cursor:pointer;font-size:10px;font-weight:650}.dsh-deepseek-account-page{box-sizing:border-box;width:min(860px,100%);padding:8px 4px 40px;color:var(--dsw-alias-label-primary)}.dsh-deepseek-account-page h2{margin:0}.dsh-deepseek-account-description{color:var(--dsw-alias-label-secondary)}.dsh-deepseek-account-panel{margin-top:14px;padding:18px;border:1px solid var(--dsw-alias-border-l2);border-radius:16px;background:var(--dsw-alias-bg-layer-1)}.dsh-deepseek-account-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.dsh-deepseek-account-head h3{margin:0}.dsh-deepseek-account-head button,.dsh-deepseek-account-topup{min-height:34px;border:1px solid var(--dsw-alias-border-l2);border-radius:999px;padding:0 13px;color:inherit;background:transparent;font:inherit}.dsh-deepseek-account-balances{display:grid;margin-top:14px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}.dsh-deepseek-account-balance{display:flex;flex-direction:column;gap:5px;padding:14px;border-radius:12px;background:var(--dsw-alias-bg-layer-2,var(--dsw-alias-interactive-bg-hover))}.dsh-deepseek-account-balance strong{font-size:22px}.dsh-deepseek-account-balance span,.dsh-deepseek-account-panel p,.dsh-deepseek-account-panel small{color:var(--dsw-alias-label-secondary);font-size:12px}.dsh-deepseek-account-warning{color:var(--dsw-alias-state-warn-label)!important}.dsh-deepseek-account-topup{display:inline-flex;align-items:center;color:#fff;text-decoration:none;background:var(--dsw-alias-state-business-primary)}"
-      style.textContent += ".dsh-deepseek-account-provider-icon{display:block;width:18px;height:18px;margin:auto}.dsh-deepseek-account-copy{gap:2px}.dsh-deepseek-account-copy small{overflow:visible;line-height:1.35;overflow-wrap:anywhere;text-overflow:clip;white-space:normal}"
+      style.textContent += ".dsh-deepseek-account-provider-icon{display:block;width:18px;height:18px;margin:auto}.dsh-deepseek-account-copy{gap:2px}.dsh-deepseek-account-copy small{overflow:visible;line-height:1.35;overflow-wrap:anywhere;text-overflow:clip;white-space:normal}.dsh-deepseek-account-quota-windows{display:grid;gap:4px;margin-top:2px}.dsh-deepseek-account-quota-window{display:grid;min-width:0;padding:3px 5px;border-radius:5px;grid-template-columns:auto minmax(0,1fr);align-items:baseline;column-gap:6px;background:var(--dsw-alias-bg-layer-2,var(--dsw-alias-interactive-bg-hover))}.dsh-deepseek-account-quota-period{font-size:11px;font-weight:650}.dsh-deepseek-account-quota-remaining{min-width:0;color:var(--dsw-alias-label-secondary);font-size:11px;font-weight:600}.dsh-deepseek-account-quota-reset{grid-column:1/-1;font-size:10px!important;line-height:1.25!important}"
       document.head.append(style)
       return () => style.remove()
     }
@@ -274,6 +363,7 @@ window.__ModuleLoader__.load({
     function apply(ctx) {
       ctx.effect(() => ctx.locale.register(namespace, dictionaries), "deepseek-account: dictionaries")
       ctx.effect(() => installStyle(), "deepseek-account: styles")
+      ctx.effect(() => installSettingsNavIcon(), "deepseek-account: settings navigation icon")
       const t = ctx.locale.bind(namespace)
       const client = createAccountClient(ctx.connection)
       ctx.slots.inject("sidebar.footer.action", () => ctx.slots.register({
@@ -293,6 +383,8 @@ window.__ModuleLoader__.load({
     module.exports.safeCodexUsage = safeCodexUsage
     module.exports.safeGrokQuota = safeGrokQuota
     module.exports.safeSnapshot = safeSnapshot
+    module.exports.installSettingsNavIcon = installSettingsNavIcon
+    module.exports.subscribeCurrentConversationCompletion = subscribeCurrentConversationCompletion
     return module.exports
   },
 })

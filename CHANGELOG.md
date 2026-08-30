@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.5 - 2026-08-30
+
+- Group Codex five-hour and weekly quota data into compact visual blocks with stronger percentage hierarchy and secondary reset-time rows.
+- Refresh the selected Provider once when the current conversation transitions from running to idle, without polling or duplicate idle refreshes.
+- Replace the generic gear beside the DeepSeek account settings entry with the DeepSeek whale icon, restoring the original shell icon when the plugin unloads.
+
 ## 0.1.4 - 2026-08-30
 
 - Show the remaining Grok quota percentage with its current reset window.
