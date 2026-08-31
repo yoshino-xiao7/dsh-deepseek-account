@@ -34,7 +34,7 @@ Requirements:
 Install the current stable version:
 
 ```sh
-dsh plugin --profile web add dsh-deepseek-account@0.1.6
+dsh plugin --profile web add dsh-deepseek-account@0.1.7
 dsh web
 ```
 
@@ -43,6 +43,8 @@ In the current conversation's Web UI:
 1. The sidebar footer identifies the current account source with its Provider icon and shows account details without decorative backgrounds; click it to refresh, or let it refresh once automatically after each conversation turn finishes.
 2. The settings navigation replaces the generic gear in place with the DeepSeek whale icon; the “DeepSeek account” page shows CNY/USD total, granted, and topped-up balances.
 3. “Sign in and top up” opens only `https://platform.deepseek.com/balance` in a new page.
+
+When another entry such as the official Cordis Plugin also occupies the sidebar footer, this plugin stacks the footer actions vertically so multiple full-width entries cannot push each other outside the sidebar.
 
 Continue to pin an exact version when upgrading so pre-release dependencies cannot drift:
 

@@ -34,7 +34,7 @@ DeepSeek Harness 的独立账户插件：在一个侧栏入口中展示当前对
 安装当前稳定版本：
 
 ```sh
-dsh plugin --profile web add dsh-deepseek-account@0.1.6
+dsh plugin --profile web add dsh-deepseek-account@0.1.7
 dsh web
 ```
 
@@ -43,6 +43,8 @@ dsh web
 1. 侧栏底部以 Provider 图标标识当前账户来源，直接显示无额外底色的账户信息；点击可手动刷新，每轮对话结束后也会主动刷新一次。
 2. 设置导航用 DeepSeek 鲸鱼图标原位替换通用齿轮；“DeepSeek 账户”页面可查看 CNY/USD 的总余额、赠送余额和充值余额。
 3. “登录并充值”只会在新页面打开 `https://platform.deepseek.com/balance`。
+
+当官方 Cordis Plugin 等其他入口同时占用侧栏 footer 时，本插件会让同一 footer 中的入口纵向排列，避免多个全宽入口互相挤出侧栏。
 
 升级时继续使用精确版本，避免预发布阶段的依赖漂移：
 

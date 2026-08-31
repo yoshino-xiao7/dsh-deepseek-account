@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.7 - 2026-08-31
+
+- Stack sidebar footer actions vertically when official full-width actions such as Cordis Plugin are present, preventing the account entry from overflowing beyond the sidebar edge.
+
 ## 0.1.6 - 2026-08-30
 
 - Replace the Harness settings gear with exactly one DeepSeek whale icon even when shell CSS overrides `hidden` or the settings row re-renders in place.
