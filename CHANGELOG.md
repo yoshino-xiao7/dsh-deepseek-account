@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.8 - 2026-08-31
 
 - Override the Harness list-slot anchor's inline `display: contents` before stacking full-width sidebar footer actions, so the Cordis and account entries actually share a vertical flex container.
 
