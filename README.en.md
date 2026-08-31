@@ -44,6 +44,8 @@ In the current conversation's Web UI:
 2. The settings navigation replaces the generic gear in place with the DeepSeek whale icon; the “DeepSeek account” page shows CNY/USD total, granted, and topped-up balances.
 3. “Sign in and top up” opens only `https://platform.deepseek.com/balance` in a new page.
 
+When another entry such as the official Cordis Plugin also occupies the sidebar footer, this plugin stacks the footer actions vertically so multiple full-width entries cannot push each other outside the sidebar.
+
 Continue to pin an exact version when upgrading so pre-release dependencies cannot drift:
 
 ```sh

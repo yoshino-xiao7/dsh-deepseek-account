@@ -264,6 +264,12 @@ test("renders icon-only provider identity and background-free account details", 
   }
 })
 
+test("stacks beside official full-width footer actions without targeting their private classes", async () => {
+  const source = await fs.readFile(path.join(root, "client.js"), "utf8")
+  assert.match(source, /div:has\(>\.dsh-deepseek-account-card\),div:has\(>\.dsh-deepseek-account-rail\)\{flex-direction:column\}/u)
+  assert.doesNotMatch(source, /Nqubda_|hHd-Xa_|dsh-client-ui-cordis/u)
+})
+
 test("refreshes once when the current conversation finishes", async () => {
   let definition
   const source = await fs.readFile(path.join(root, "client.js"), "utf8")
