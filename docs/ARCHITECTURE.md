@@ -70,7 +70,7 @@ await balance.read({ force? })
 
 设置导航图标 adapter 只匹配插件拥有的中英文 label，以内联高优先级样式隐藏 Harness 原图标并挂载唯一鲸鱼图标。它必须在同一按钮被 Harness 原位重绘后重新隐藏新的原图标，重复 DOM 通知不得重复挂载；插件卸载时必须断开观察、移除鲸鱼并恢复接触过的全部原图标及其原始样式。Harness 将来提供正式 section 图标接口后，应删除这个临时 adapter。
 
-`sidebar.footer.action` 是 list slot，但官方 sidebar 容器默认使用单行 flex，官方 Cordis 入口本身又是不可收缩的全宽元素。本插件通过只匹配“直接包含本插件 card/rail 的父容器”将该 footer 改为纵向排列；不得依赖 sidebar 或 Cordis 的构建期哈希类名，也不得覆盖官方入口自身的宽度、定位或弹层样式。
+`sidebar.footer.action` 是 list slot，但官方 sidebar 容器默认使用单行 flex，官方 Cordis 入口本身又是不可收缩的全宽元素。Renderer 的 list-slot anchor 使用内联 `display: contents`，因此只设置 `flex-direction` 不会形成布局容器；本插件必须匹配同时直接包含本插件 card/rail 的 `data-slot="sidebar.footer.action"` anchor，以 `display:flex!important` 覆盖该内联值后再纵向排列。不得依赖 sidebar 或 Cordis 的构建期哈希类名，也不得覆盖官方入口自身的宽度、定位或弹层样式。
 
 ### Optional Provider adapters
 

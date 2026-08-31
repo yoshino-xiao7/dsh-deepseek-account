@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Override the Harness list-slot anchor's inline `display: contents` before stacking full-width sidebar footer actions, so the Cordis and account entries actually share a vertical flex container.
+
 ## 0.1.7 - 2026-08-31
 
 - Stack sidebar footer actions vertically when official full-width actions such as Cordis Plugin are present, preventing the account entry from overflowing beyond the sidebar edge.
