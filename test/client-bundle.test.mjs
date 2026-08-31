@@ -264,9 +264,30 @@ test("renders icon-only provider identity and background-free account details", 
   }
 })
 
-test("stacks beside official full-width footer actions without targeting their private classes", async () => {
+test("turns the display-contents footer slot into the shared vertical layout container", async () => {
+  let definition
+  let installedCss = ""
   const source = await fs.readFile(path.join(root, "client.js"), "utf8")
-  assert.match(source, /div:has\(>\.dsh-deepseek-account-card\),div:has\(>\.dsh-deepseek-account-rail\)\{flex-direction:column\}/u)
+  vm.runInNewContext(source, {
+    window: { __ModuleLoader__: { load(value) { definition = value } } },
+    document: {
+      head: { append(style) { installedCss = style.textContent } },
+      createElement: () => ({ dataset: {}, remove() {}, textContent: "" }),
+      querySelector: () => null,
+    },
+  })
+  const plugin = definition.factory(() => ({ createElement() {}, Fragment: Symbol("Fragment") }))
+  plugin.apply({
+    connection: { rpc: { call() {} } },
+    effect(callback) { callback() },
+    locale: { register() {}, bind: () => (key) => key },
+    slots: { inject() {}, register() {} },
+    sessions: { list: { getSnapshot: () => ({ current: undefined }), subscribe: () => () => {} } },
+    modelDirectories: { directoryFor: () => { throw new Error("no active session") } },
+  })
+
+  assert.match(installedCss, /div\[data-slot="sidebar\.footer\.action"\]:has\(>\.dsh-deepseek-account-card\),div\[data-slot="sidebar\.footer\.action"\]:has\(>\.dsh-deepseek-account-rail\)\{display:flex!important;width:100%;min-width:0;flex-direction:column\}/u)
+  assert.doesNotMatch(installedCss, /div:has\(>\.dsh-deepseek-account-card\),div:has\(>\.dsh-deepseek-account-rail\)\{flex-direction:column\}/u)
   assert.doesNotMatch(source, /Nqubda_|hHd-Xa_|dsh-client-ui-cordis/u)
 })
 

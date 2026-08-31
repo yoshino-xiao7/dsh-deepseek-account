@@ -34,7 +34,7 @@ DeepSeek Harness 的独立账户插件：在一个侧栏入口中展示当前对
 安装当前稳定版本：
 
 ```sh
-dsh plugin --profile web add dsh-deepseek-account@0.1.7
+dsh plugin --profile web add dsh-deepseek-account@0.1.8
 dsh web
 ```
 
