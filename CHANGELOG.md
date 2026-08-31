@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.7 - 2026-08-31
 
 - Stack sidebar footer actions vertically when official full-width actions such as Cordis Plugin are present, preventing the account entry from overflowing beyond the sidebar edge.
 
