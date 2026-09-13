@@ -28,13 +28,13 @@ Only DeepSeek has a top-up entry. Grok uses the remaining percentage supplied by
 Requirements:
 
 - Node.js `>=22.19.0 <25`
-- DeepSeek Harness in the `0.1.1-rc.2` line
+- DeepSeek Harness `0.1.1-rc.2` or `0.1.5-rc.2` (live balance acceptance for this release used `0.1.5-rc.2`)
 - `DEEPSEEK_API_KEY` configured in Harness model settings when reading a DeepSeek balance
 
 Install the current stable version:
 
 ```sh
-dsh plugin --profile web add dsh-deepseek-account@0.1.8
+dsh plugin --profile web add dsh-deepseek-account@0.1.9
 dsh web
 ```
 

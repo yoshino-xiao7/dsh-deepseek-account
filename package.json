@@ -1,6 +1,6 @@
 {
   "name": "dsh-deepseek-account",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "DeepSeek account balance and official top-up entry for DeepSeek Harness",
   "type": "module",
   "license": "MIT",
@@ -59,14 +59,14 @@
     "prepack": "npm run check"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "4.0.1",
-    "@deepseek-ai/dsh-client-connection": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-client-locale": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-client-runtime": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-client-ui-model-selection": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-client-ui-settings": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-client-ui-sidebar": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-credentials": "0.1.1-rc.2"
+    "@deepseek-ai/cordis": "4.0.1 || 4.0.2",
+    "@deepseek-ai/dsh-client-connection": "0.1.1-rc.2 || 0.1.5-rc.2",
+    "@deepseek-ai/dsh-client-locale": "0.1.1-rc.2 || 0.1.5-rc.2",
+    "@deepseek-ai/dsh-client-runtime": "0.1.1-rc.2 || 0.1.5-rc.2",
+    "@deepseek-ai/dsh-client-ui-model-selection": "0.1.1-rc.2 || 0.1.5-rc.2",
+    "@deepseek-ai/dsh-client-ui-settings": "0.1.1-rc.2 || 0.1.5-rc.2",
+    "@deepseek-ai/dsh-client-ui-sidebar": "0.1.1-rc.2 || 0.1.5-rc.2",
+    "@deepseek-ai/dsh-credentials": "0.1.1-rc.2 || 0.1.5-rc.2"
   },
   "peerDependenciesMeta": {
     "@deepseek-ai/dsh-client-connection": { "optional": true },

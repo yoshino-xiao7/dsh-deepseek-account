@@ -18,6 +18,14 @@
 - Grok/Codex 必须保持可选，它们缺失时 DeepSeek 仍可工作。
 - 稳定版只承诺最新版本获得安全修复；破坏性变化需要在 README、CHANGELOG 和发布说明中突出。
 
+Host 生命周期回归使用真实 Cordis/Connection 模块，覆盖 HTTP 服务延迟启动、重启和插件卸载。CI 自动安装隔离的 0.1.5-rc.2 fixture；本地可复用已安装的 Harness：
+
+```sh
+DSH_TEST_NODE_MODULES=/absolute/path/to/harness/node_modules node --test test/host-runtime.test.mjs
+```
+
+未设置此变量时该项测试跳过，普通 `npm test` 通过不代表已完成 Host 兼容验证。此测试不读取真实凭据或请求官方 API。
+
 ## Pull Request review
 
 合并前确认：

@@ -33,3 +33,18 @@ jobs:
       - run: npm ci --ignore-scripts --omit=peer
       - run: npm run check
       - run: npm run pack:check
+
+  host-compatibility:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Install isolated Host fixture
+        run: npm install --prefix "$RUNNER_TEMP/host-fixture" --ignore-scripts --legacy-peer-deps --no-audit --no-fund @deepseek-ai/cordis@4.0.2 @deepseek-ai/dsh-client-connection@0.1.5-rc.2
+      - name: Verify real Host lifecycle
+        run: DSH_TEST_NODE_MODULES="$RUNNER_TEMP/host-fixture/node_modules" node --test test/host-runtime.test.mjs

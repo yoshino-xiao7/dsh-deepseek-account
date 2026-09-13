@@ -30,6 +30,8 @@ current session list ── running true→false ──> one forced account refr
 
 `src/host/index.mjs` 是 npm 包的 Host 入口。它的接口只有 Harness 插件约定的 `name`、`inject` 和 `apply(ctx)`，负责组合 credential adapter、余额模块与 connection adapter，不包含浏览器 UI。
 
+HTTP RPC 注册必须同时等待 `connection` 和 `webServer`。新版 Harness 可先提供 Connection、后启动 HTTP carrier；仅等待 Connection 会让路由注册失败，客户端收到 HTTP 405。路由归属两项服务的注入生命周期，HTTP 服务重启时自动移除并重新注册。
+
 ### Account balance module
 
 `src/internal/account-balance.mjs` 隐藏 DeepSeek 请求、缓存、并发合并、错误分类和响应投影。它的接口是：
