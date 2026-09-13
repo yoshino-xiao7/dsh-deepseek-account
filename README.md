@@ -28,13 +28,13 @@ DeepSeek Harness 的独立账户插件：在一个侧栏入口中展示当前对
 运行环境：
 
 - Node.js `>=22.19.0 <25`
-- DeepSeek Harness `0.1.1-rc.2` 系列
+- DeepSeek Harness `0.1.1-rc.2` 或 `0.1.5-rc.2`（本次在 `0.1.5-rc.2` 完成真实余额验收）
 - 已在 Harness 模型设置中配置 `DEEPSEEK_API_KEY`（仅查看 DeepSeek 余额时需要）
 
 安装当前稳定版本：
 
 ```sh
-dsh plugin --profile web add dsh-deepseek-account@0.1.8
+dsh plugin --profile web add dsh-deepseek-account@0.1.9
 dsh web
 ```
 

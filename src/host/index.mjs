@@ -6,5 +6,10 @@ export const inject = ["credentials"]
 
 export function apply(ctx) {
   const accountBalance = createDeepSeekAccountBalance({ credentials: ctx.credentials })
-  ctx.inject(["connection"], (connectionCtx) => registerDeepSeekAccountRpc(connectionCtx, accountBalance))
+  // Connection can become ready before its HTTP carrier in newer Harness versions.
+  // Own the route in both services' lifetime so server reloads register it again.
+  ctx.inject(["connection", "webServer"], (connectionCtx) => {
+    // Connection already owns the registration effect in this injection fiber.
+    registerDeepSeekAccountRpc(connectionCtx, accountBalance)
+  })
 }

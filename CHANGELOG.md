@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.9 - 2026-09-13
+
+- Wait for both Connection and its HTTP server before registering the balance RPC, fixing missing routes after upgrading Harness; restore the route when the server restarts.
+- Add real Host lifecycle regression coverage for Harness 0.1.5-rc.2.
+- Declare compatibility with Harness 0.1.5-rc.2 and Cordis 4.0.2 alongside the existing versions.
+
 ## 0.1.8 - 2026-08-31
 
 - Override the Harness list-slot anchor's inline `display: contents` before stacking full-width sidebar footer actions, so the Cordis and account entries actually share a vertical flex container.
